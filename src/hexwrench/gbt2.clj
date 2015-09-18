@@ -31,7 +31,13 @@
   created by reducing the sums mod seven and collecting
   the sequence of carry digits [sum (carries)]"
   [coll]
-  coll)
+  (reduce (fn [sc w]
+            (let [sum (sc 0)
+                  carries (sc 1)]
+              [(mod (+ sum w) 7)
+               (conj carries (get-in add-carry-lut [sum w]))]))
+          [(first coll) ()]
+          (rest coll)))
 
 ;; Holy moly this seems gross. In other languages I would do a lot of array
 ;; index shenaningans here. The idea for this came from Knuth and
@@ -47,11 +53,13 @@
      (if (and (empty? addr1-rev) (empty? addr2-rev) (empty? carry))
        (reverse sum-rev)
        (let [work (conj (conj carry (first addr1-rev)) (first addr2-rev))
-             sum-n-carry (sum-digits work)]
+             sum-n-carry (sum-digits work)
+             sum (sum-n-carry 0)
+             carry (sum-n-carry 1)]
          (recur (rest addr1-rev)
                 (rest addr2-rev)
-                (sum-n-carry 1)
-                (conj sum-rev (sum-n-carry 0)))))))
+                sum
+                (conj sum-rev carry))))))
   ([addr1 addr2 & more]
    (reduce add (add addr1 addr2) more)))
 
