@@ -1,7 +1,20 @@
+;;;; A libary for manipulating order 2 Generalized Balanced Ternary values
+;;;; These values are sequences of base 7 numbers that are addresses of hexagons
+;;;; that tile the 2D cartesion plane. I've never been able to get my hands on
+;;;; Laurie Gibson and Dean Lucas's 1982 paper on the subject.
+;;;; Wei Zeng Kitto's thesis on "An isomorphism between Generalized Balanced Ternary
+;;;; and the p-adic integers" is a great source of information. As is the last chapter
+;;;; of G. Ritter's "Image Algebra" (he was her advisor).
 (ns hexwrench.gbt2
-  (:refer-clojure)
-  (:require hexwrench.core))
+  (:refer-clojure))
 
+;; According to https://github.com/RhysU/descendu/
+;; who might have seen the original paper:
+;; "Gibson and Lucas hint at something nicer...
+;;     "There is a very quick and general algorithm for the
+;;      addition of base digits in any dimension"
+;; ...but then give no further hints.  For now, the
+;; carry table is explicitly encoded."
 (def add-carry-lut [[0 0 0 0 0 0 0]
                     [0 1 0 3 0 1 0]
                     [0 0 2 2 0 0 6]
@@ -14,12 +27,15 @@
   (every? #(<= 0 % 6) addr))
 
 (defn str->addr [s]
-  (map #(Character/getNumericValue %) (vec s)))
+  (map #(Character/getNumericValue %) (seq s)))
 
 (defn addr->str [addr]
   (apply str addr))
 
-(defn inv [addr]
+(defn inv 
+  "Returns the inverse of an address,
+  which is the address equidistant across the origin"
+  [addr]
   (map #(if (zero? %) 0 (- 7 %)) addr))
 
 (defn- sum-digits
@@ -41,6 +57,7 @@
 ;; index shenaningans here. The idea for this came from Knuth and
 ;; http://lburja.blogspot.com/2010/07/toy-algorithms-with-numbers-in-clojure.html
 (defn add
+  "Adds GBT2 addresses which is translation by vector addition"
   ([] [0])
   ([addr] addr)
   ([addr1 addr2] 
@@ -60,6 +77,7 @@
    (reduce add (add addr1 addr2) more)))
 
 (defn sub
+  "Subtracts GBT2 addresses. x - y = x + inverse of y"
   ([] [0])
   ([addr] (inv addr))
   ([addr1 addr2] (add addr1 (inv addr2)))
@@ -67,6 +85,7 @@
    (reduce sub (sub addr1 addr2) more)))
 
 (defn mul
+  "Multiply GBT2 addresses which performs rotation"
   ([] [0])
   ([addr] addr)
   ([addr1 addr2] ()); IMPLEMENT
