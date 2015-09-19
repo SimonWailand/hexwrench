@@ -19,23 +19,21 @@
 (defn addr->str [addr]
   (apply str addr))
 
-(defn inv
-  [addr]
+(defn inv [addr]
   (map #(if (zero? %) 0 (- 7 %)) addr))
-
-(defn first-or-zero [addr]
-  (if (empty? addr) 0 (first addr)))
 
 (defn- sum-digits
   "Sums a sequence of digits and returns a tuple
-  created by reducing the sums mod seven and collecting
+  created by reducing over addition mod seven and collecting
   the sequence of carry digits [sum (carries)]"
   [coll]
-  (reduce (fn [sc w]
-            (let [sum (sc 0)
-                  carries (sc 1)]
-              [(mod (+ sum w) 7)
-               (conj carries (get-in add-carry-lut [sum w]))]))
+  (reduce (fn [sum-n-carries x]
+            (let [[prior-sum carries] sum-n-carries
+                  carry (get-in add-carry-lut [prior-sum x])]
+              [(mod (+ prior-sum x) 7)
+               (if (not (or (nil? carry) (zero? carry)))
+                 (conj carries carry)
+                 carries)]))
           [(first coll) ()]
           (rest coll)))
 
@@ -48,18 +46,16 @@
   ([addr1 addr2] 
    (loop [addr1-rev (reverse addr1)
           addr2-rev (reverse addr2)
-          carry []
-          sum-rev []]
-     (if (and (empty? addr1-rev) (empty? addr2-rev) (empty? carry))
-       (reverse sum-rev)
-       (let [work (conj (conj carry (first addr1-rev)) (first addr2-rev))
-             sum-n-carry (sum-digits work)
-             sum (sum-n-carry 0)
-             carry (sum-n-carry 1)]
+          carries ()
+          sum-addr ()]
+     (if (and (empty? addr1-rev) (empty? addr2-rev) (empty? carries))
+       sum-addr
+       (let [work (filter #(not (nil? %)) (conj carries (first addr1-rev) (first addr2-rev)))
+             [sum next-carry] (sum-digits work)]
          (recur (rest addr1-rev)
                 (rest addr2-rev)
-                sum
-                (conj sum-rev carry))))))
+                next-carry
+                (conj sum-addr sum))))))
   ([addr1 addr2 & more]
    (reduce add (add addr1 addr2) more)))
 
