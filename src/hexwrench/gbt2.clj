@@ -26,6 +26,7 @@
 (defn gbt2-addr? [addr]
   (every? #(<= 0 % 6) addr))
 
+;; TODO: rewrite this so it works in both clojure and clojurescript?
 (defn str->addr [s]
   (map #(Character/getNumericValue %) (seq s)))
 
@@ -56,9 +57,10 @@
 ;; Holy moly this seems gross. In other languages I would do a lot of array
 ;; index shenaningans here. The idea for this came from Knuth and
 ;; http://lburja.blogspot.com/2010/07/toy-algorithms-with-numbers-in-clojure.html
+;; TODO: add an addition function that takes an aggregate level and wraps at that level
 (defn add
   "Adds GBT2 addresses which is translation by vector addition"
-  ([] [0])
+  ([] '(0))
   ([addr] addr)
   ([addr1 addr2] 
    (loop [addr1-rev (reverse addr1)
@@ -77,17 +79,28 @@
    (reduce add (add addr1 addr2) more)))
 
 (defn sub
-  "Subtracts GBT2 addresses. x - y = x + inverse of y"
-  ([] [0])
+  "Subtracts GBT2 addresses. x - y = x + inverse of y
+  which returns the vector from y to x"
+  ([] '(0))
   ([addr] (inv addr))
   ([addr1 addr2] (add addr1 (inv addr2)))
   ([addr1 addr2 & more]
    (reduce sub (sub addr1 addr2) more)))
 
+;; I'm doing this with partial sums, should I rewrite it to add in place
+;; like Knuth shows in his classical algorithms chapter?
+;; GBT2 multiplication has no carries, yay!
 (defn mul
   "Multiply GBT2 addresses which performs rotation"
-  ([] [0])
+  ([] '(0))
   ([addr] addr)
-  ([addr1 addr2] ()); IMPLEMENT
+  ([addr1 addr2]
+   (loop [addr1-rev (reverse addr1)
+          addr2-rev (reverse addr2)
+          place-padding ()
+          sums ()]
+     (if (empty? addr1-rev)
+       (apply add sums)
+       ())))
   ([addr1 addr2 & more]
    (reduce mul (mul addr1 addr2) more)))
