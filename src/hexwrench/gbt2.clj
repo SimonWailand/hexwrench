@@ -27,8 +27,9 @@
   (every? #(<= 0 % 6) addr))
 
 ;; TODO: rewrite this so it works in both clojure and clojurescript?
-(defn str->addr [s]
-  (map #(Character/getNumericValue %) (seq s)))
+(defn str->addr
+  ([s] (map #(Character/getNumericValue %) (seq s)))
+  ([s & xs] (map str->addr (conj xs s))))
 
 (defn addr->str [addr]
   (apply str addr))
@@ -88,19 +89,42 @@
    (reduce sub (sub addr1 addr2) more)))
 
 ;; I'm doing this with partial sums, should I rewrite it to add in place
-;; like Knuth shows in his classical algorithms chapter?
-;; GBT2 multiplication has no carries, yay!
+;; like Knuth shows in his classical algorithms chapter? Otherwise, short-circuit zeroes?
+;; GBT2 multiplication is performed mod 7 and has no carries, yay!
 (defn mul
   "Multiply GBT2 addresses which performs rotation"
   ([] '(0))
   ([addr] addr)
   ([addr1 addr2]
    (loop [addr1-rev (reverse addr1)
-          addr2-rev (reverse addr2)
           place-padding ()
-          sums ()]
+          partial-sums ()]
+     (println partial-sums)
      (if (empty? addr1-rev)
-       (apply add sums)
-       ())))
+       (apply add partial-sums)
+       (let [curr-multiplier (first addr1-rev)]
+         (recur (rest addr1-rev)
+                (conj place-padding 0)
+                (if (zero? curr-multiplier)
+                  partial-sums
+                  (conj partial-sums
+                        (concat
+                         (map #(mod (* % curr-multiplier) 7) addr2)
+                         place-padding))))))))
   ([addr1 addr2 & more]
    (reduce mul (mul addr1 addr2) more)))
+
+;; TODO: this only works for the first two aggregates. After that the skew means that 
+;; the returned path is too long. Unskewing each translation by rotating based on 
+;; some threshold might be a solution. 
+(defn shortest-path 
+  "Returns a sequence of unit translations that define the shortest path from
+  addr1 to addr2. The count of this sequence is the Manhattan Distance."
+  [addr1 addr2]
+  (let [from-addr ()]; Translate the "to" address to the origin
+    ()))
+
+(defn neighbors
+  "returns the neighboring hexes around a hex in a given radius"
+  [addr radius]
+  ())
