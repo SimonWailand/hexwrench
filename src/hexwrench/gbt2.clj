@@ -5,6 +5,12 @@
 ;;;; Wei Zeng Kitto's thesis on "An isomorphism between Generalized Balanced Ternary
 ;;;; and the p-adic integers" is a great source of information. As is the last chapter
 ;;;; of G. Ritter's "Image Algebra" (he was her advisor).
+;;;; I'm using flat topped hexagons with the balanced aggregate layout from the original paper.
+;;;;    1
+;;;; 5     3
+;;;;    0  
+;;;; 4     2
+;;;;    6
 (ns hexwrench.gbt2
   (:refer-clojure))
 
@@ -23,13 +29,16 @@
                     [0 1 0 0 5 5 0]
                     [0 0 6 0 4 0 6]])
 
+(def aggregate1-cw [[1] [3] [2] [6] [4] [5]])
+(def angles-cw [0 60 120 180 240 300])
+
 (defn gbt2-addr? [addr]
   (every? #(<= 0 % 6) addr))
 
 ;; TODO: rewrite this so it works in both clojure and clojurescript?
 (defn str->addr
   ([s] (map #(Character/getNumericValue %) (seq s)))
-  ([s & xs] (map str->addr (conj xs s))))
+  ([s & xs] (map str->addr (conj xs s)))); There has got to be a better way.
 
 (defn addr->str [addr]
   (apply str addr))
@@ -69,7 +78,10 @@
           carries ()
           sum-addr ()]
      (if (and (empty? addr1-rev) (empty? addr2-rev) (empty? carries))
-       sum-addr
+       (let [unpadded-addr (drop-while zero? sum-addr)]
+         (if (empty? unpadded-addr)
+           '(0)
+           unpadded-addr))
        (let [work (filter #(not (nil? %)) (conj carries (first addr1-rev) (first addr2-rev)))
              [sum next-carry] (sum-digits work)]
          (recur (rest addr1-rev)
@@ -99,7 +111,6 @@
    (loop [addr1-rev (reverse addr1)
           place-padding ()
           partial-sums ()]
-     (println partial-sums)
      (if (empty? addr1-rev)
        (apply add partial-sums)
        (let [curr-multiplier (first addr1-rev)]
@@ -116,15 +127,27 @@
 
 ;; TODO: this only works for the first two aggregates. After that the skew means that 
 ;; the returned path is too long. Unskewing each translation by rotating based on 
-;; some threshold might be a solution. 
+;; some threshold might be a solution. Skew is 19.11 degrees per aggregate
+;; (arctan (/ (sqrt 3) 2))
 (defn shortest-path 
   "Returns a sequence of unit translations that define the shortest path from
-  addr1 to addr2. The count of this sequence is the Manhattan Distance."
-  [addr1 addr2]
-  (let [from-addr ()]; Translate the "to" address to the origin
-    ()))
+  addr1 to addr2. The count of this sequence is the Manhattan Distance.
+  Any ordering of the sequence is valid assuming no obstacles"
+  ([addr]
+   (loop [curr-addr addr
+          path ()]
+     (println curr-addr path)
+     (if (every? zero? curr-addr)
+       path
+       (let [move (inv (take 1 curr-addr))];Move is the inverse of the most significant digit
+         (recur (add curr-addr move)
+                (conj path move))))))
+  ([addr1 addr2]
+   ;Translate "from" by moving "to" to the origin
+   (shortest-path (sub addr1 addr2))))
 
+;; Just implemented for 1 so far
 (defn neighbors
   "returns the neighboring hexes around a hex in a given radius"
-  [addr radius]
-  ())
+  [addr]
+  (map (partial add addr) aggregate1-cw))
