@@ -11,8 +11,7 @@
 ;;;;    0  
 ;;;; 4     2
 ;;;;    6
-(ns hexwrench.gbt2
-  (:refer-clojure))
+(ns hexwrench.gbt2)
 
 ;; According to https://github.com/RhysU/descendu/
 ;; who might have seen the original paper:
@@ -29,25 +28,36 @@
                     [0 1 0 0 5 5 0]
                     [0 0 6 0 4 0 6]])
 
-(def aggregate1-cw [[1] [3] [2] [6] [4] [5]])
-(def angles-cw [0 60 120 180 240 300])
+(def first-aggregate-clockwise #{1 3 2 6 4 5})
+(def angles-clockwise [0 60 120 180 240 300])
 
-(defn gbt2-addr? [addr]
-  (every? #(<= 0 % 6) addr))
+(defn gbt2? [hex]
+  (every? #(<= 0 % 6) hex))
 
 ;; TODO: rewrite this so it works in both clojure and clojurescript?
-(defn str->addr
-  ([s] (map #(Character/getNumericValue %) (seq s)))
-  ([s & xs] (map str->addr (conj xs s)))); There has got to be a better way.
+(defn str->hex [s]
+  (map #(Character/getNumericValue %) (seq s)))
 
-(defn addr->str [addr]
-  (apply str addr))
+(defn int->hex [x]
+  (str->hex (Integer/toString x 7)))
+
+(defn hex->str [hex]
+  (apply str hex))
+
+(defn hex->int [hex]
+  (Integer/parseInt (hex->str hex)))
 
 (defn inv 
   "Returns the inverse of an address,
   which is the address equidistant across the origin"
-  [addr]
-  (map #(if (zero? %) 0 (- 7 %)) addr))
+  [hex]
+  (map #(if (zero? %) 0 (- 7 %)) hex))
+
+(defn +mod7 [x y]
+  (mod (+ x y) 7))
+
+(defn *mod7 [x y]
+  (mod (* x y) 7))
 
 (defn- sum-digits
   "Sums a sequence of digits and returns a tuple
@@ -57,7 +67,7 @@
   (reduce (fn [sum-n-carries x]
             (let [[prior-sum carries] sum-n-carries
                   carry (get-in add-carry-lut [prior-sum x])]
-              [(mod (+ prior-sum x) 7)
+              [(+mod7 prior-sum x)
                (if (not (or (nil? carry) (zero? carry)))
                  (conj carries carry)
                  carries)]))
@@ -71,59 +81,58 @@
 (defn add
   "Adds GBT2 addresses which is translation by vector addition"
   ([] '(0))
-  ([addr] addr)
-  ([addr1 addr2] 
-   (loop [addr1-rev (reverse addr1)
-          addr2-rev (reverse addr2)
+  ([hex] hex)
+  ([hex1 hex2] 
+   (loop [hex1-rev (reverse hex1)
+          hex2-rev (reverse hex2)
           carries ()
-          sum-addr ()]
-     (if (and (empty? addr1-rev) (empty? addr2-rev) (empty? carries))
-       (let [unpadded-addr (drop-while zero? sum-addr)]
-         (if (empty? unpadded-addr)
+          sum-hex ()]
+     (if (and (empty? hex1-rev) (empty? hex2-rev) (empty? carries))
+       (let [unpadded-hex (drop-while zero? sum-hex)]
+         (if (empty? unpadded-hex)
            '(0)
-           unpadded-addr))
-       (let [work (filter #(not (nil? %)) (conj carries (first addr1-rev) (first addr2-rev)))
+           unpadded-hex))
+       (let [work (filter #(not (nil? %)) (conj carries (first hex1-rev) (first hex2-rev)))
              [sum next-carry] (sum-digits work)]
-         (recur (rest addr1-rev)
-                (rest addr2-rev)
+         (recur (rest hex1-rev)
+                (rest hex2-rev)
                 next-carry
-                (conj sum-addr sum))))))
-  ([addr1 addr2 & more]
-   (reduce add (add addr1 addr2) more)))
+                (conj sum-hex sum))))))
+  ([hex1 hex2 & more]
+   (reduce add (add hex1 hex2) more)))
 
 (defn sub
   "Subtracts GBT2 addresses. x - y = x + inverse of y
   which returns the vector from y to x"
   ([] '(0))
-  ([addr] (inv addr))
-  ([addr1 addr2] (add addr1 (inv addr2)))
-  ([addr1 addr2 & more]
-   (reduce sub (sub addr1 addr2) more)))
+  ([hex] (inv hex))
+  ([hex1 hex2] (add hex1 (inv hex2)))
+  ([hex1 hex2 & more]
+   (reduce sub (sub hex1 hex2) more)))
 
 ;; I'm doing this with partial sums, should I rewrite it to add in place
-;; like Knuth shows in his classical algorithms chapter? Otherwise, short-circuit zeroes?
+;; like Knuth shows in his classical algorithms chapter?
 ;; GBT2 multiplication is performed mod 7 and has no carries, yay!
 (defn mul
   "Multiply GBT2 addresses which performs rotation"
   ([] '(0))
-  ([addr] addr)
-  ([addr1 addr2]
-   (loop [addr1-rev (reverse addr1)
+  ([hex] hex)
+  ([hex1 hex2]
+   (loop [hex1-rev (reverse hex1)
           place-padding ()
           partial-sums ()]
-     (if (empty? addr1-rev)
+     (if (empty? hex1-rev)
        (apply add partial-sums)
-       (let [curr-multiplier (first addr1-rev)]
-         (recur (rest addr1-rev)
+       (let [curr-multiplier (first hex1-rev)]
+         (recur (rest hex1-rev)
                 (conj place-padding 0)
                 (if (zero? curr-multiplier)
                   partial-sums
                   (conj partial-sums
-                        (concat
-                         (map #(mod (* % curr-multiplier) 7) addr2)
+                        (concat (map #(*mod7 % curr-multiplier) hex2)
                          place-padding))))))))
-  ([addr1 addr2 & more]
-   (reduce mul (mul addr1 addr2) more)))
+  ([hex1 hex2 & more]
+   (reduce mul (mul hex1 hex2) more)))
 
 ;; TODO: this only works for the first two aggregates. After that the skew means that 
 ;; the returned path is too long. Unskewing each translation by rotating based on 
@@ -133,21 +142,26 @@
   "Returns a sequence of unit translations that define the shortest path from
   addr1 to addr2. The count of this sequence is the Manhattan Distance.
   Any ordering of the sequence is valid assuming no obstacles"
-  ([addr]
-   (loop [curr-addr addr
+  ([hex]
+   (loop [curr-hex hex
           path ()]
-     (println curr-addr path)
-     (if (every? zero? curr-addr)
+     (println curr-hex)
+     (if (every? zero? curr-hex)
        path
-       (let [move (inv (take 1 curr-addr))];Move is the inverse of the most significant digit
-         (recur (add curr-addr move)
+       (let [move (inv (take 1 curr-hex))];Move is the inverse of the most significant digit
+         (println move)
+         (recur (add curr-hex move)
                 (conj path move))))))
-  ([addr1 addr2]
+  ([hex1 hex2]
    ;Translate "from" by moving "to" to the origin
-   (shortest-path (sub addr1 addr2))))
-
-;; Just implemented for 1 so far
+   (shortest-path (sub hex1 hex2))))
+;; Just implemented for radius 1 so far
 (defn neighbors
   "returns the neighboring hexes around a hex in a given radius"
-  [addr]
-  (map (partial add addr) aggregate1-cw))
+  [hex]
+  (map #(add hex (int->hex %)) first-aggregate-clockwise))
+
+(defn create-aggregate
+  "Creates a set of hex addresses for aggregate n (7^n hexes)"
+  [n]
+  #{});Implement!
