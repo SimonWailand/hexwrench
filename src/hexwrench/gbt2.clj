@@ -28,7 +28,7 @@
                     [0 1 0 0 5 5 0]
                     [0 0 6 0 4 0 6]])
 
-(def first-aggregate-clockwise #{1 3 2 6 4 5})
+(def first-aggregate-clockwise [[1] [3] [2] [6] [4] [5]])
 (def angles-clockwise [0 60 120 180 240 300])
 
 (defn gbt2? [hex]
@@ -155,13 +155,14 @@
   ([hex1 hex2]
    ;Translate "from" by moving "to" to the origin
    (shortest-path (sub hex1 hex2))))
+
 ;; Just implemented for radius 1 so far
 (defn neighbors
   "returns the neighboring hexes around a hex in a given radius"
   [hex]
-  (map #(add hex (int->hex %)) first-aggregate-clockwise))
+  (map #(add hex %) first-aggregate-clockwise))
 
 (defn create-aggregate
   "Creates a set of hex addresses for aggregate n (7^n hexes)"
   [n]
-  #{});Implement!
+  (map int->hex (range (Math/pow 7 n))))
