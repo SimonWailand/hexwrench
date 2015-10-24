@@ -4,8 +4,8 @@
 ;;;; Laurie Gibson and Dean Lucas's 1982 paper on the subject.
 ;;;; Wei Zeng Kitto's thesis on "An isomorphism between Generalized Balanced Ternary
 ;;;; and the p-adic integers" is a great source of information. As is the last chapter
-;;;; of G. Ritter's "Image Algebra" (he was her advisor).
-;;;; I'm using flat topped hexagons with the balanced aggregate layout from the original paper.
+;;;; of G. Ritter's "Image Algebra" (he was W. Kitto's advisor).
+;;;; I'm using flat topped hexagons with the balanced aggregate layout from the original paper as listed below. Although I'm pretty sure any orientation will work with minimal code changes.
 ;;;;    1
 ;;;; 5     3
 ;;;;    0  
@@ -29,13 +29,55 @@
                     [0 1 0 0 5 5 0]
                     [0 0 6 0 4 0 6]])
 
-(def first-aggregate-clockwise [[1] [3] [2] [6] [4] [5]])
+(def first-aggregate-clockwise [1 3 2 6 4 5])
 (def angles-clockwise [0 60 120 180 240 300])
 
 (def skew (Math/atan hc/apothem))
 
-(defn gbt2? [hex]
-  (every? #(<= 0 % 6) hex))
+;; Could also do this via String casting, repeated division, or logarithms
+;; Clojure uses Longs internally. MAX_VALUE is 9223372036854775807 or
+;; 7r22341010611245052052300. Most GBT2 values will be small and always >= 0
+(defn len [x]
+  (cond
+   (< x 7) 1
+   (< x 49) 2
+   (< x 343) 3
+   (< x 2041) 4
+   (< x 16807) 5
+   (< x 117649) 6
+   (< x 823543) 7
+   (< x 5764801) 8
+   (< x 40353607) 9
+   (< x 282475249) 10
+   (< x 1977326743) 11
+   (< x 13841287201) 12
+   (< x 96889010407) 13
+   (< x 678223072849) 14
+   (< x 4747561509943) 15
+   (< x 33232930569601) 16
+   (< x 232630513987207) 17
+   (< x 1628413597910449) 18
+   (< x 11398895185373144) 19
+   (< x 79792266297612000) 20
+   (< x 558545864083284032) 21
+   :else 22))
+
+(defn int->seq [x]
+  (lazy-seq
+   (let [n (len x)
+         p (long (Math/pow 7 (- n 1)))
+         d (quot x p)]
+     (cons d (if (= n 1)
+               nil
+               (int->seq (- x (* d p))))))))
+
+(defn int->revseq [x]
+  (lazy-seq
+   (cons (mod x 7)
+         (let [q (quot x 7)]
+           (if (pos? q) 
+             (int->revseq q)
+             nil)))))
 
 ;; TODO: rewrite this so it works in both clojure and clojurescript?
 (defn str->hex [s]
