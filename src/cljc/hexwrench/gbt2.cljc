@@ -62,10 +62,19 @@
    (< x 558545864083284032) 21
    :else 22))
 
+(defn +mod7 [x y]
+  (mod (+ x y) 7))
+
+(defn *mod7 [x y]
+  (mod (* x y) 7))
+
+(defn pow7 [x]
+  (long (Math/pow 7 x)));Math/pow returns a double
+
 (defn int->seq [x]
   (lazy-seq
    (let [n (len x)
-         p (long (Math/pow 7 (- n 1)))
+         p (pow7 (- n 1))
          d (quot x p)]
      (cons d (if (= n 1)
                nil
@@ -79,30 +88,23 @@
              (int->revseq q)
              nil)))))
 
-;; TODO: rewrite this so it works in both clojure and clojurescript?
-(defn str->hex [s]
-  (map #(Character/getNumericValue %) (seq s)))
-
-(defn int->hex [x]
-  (str->hex (Integer/toString x 7)))
-
-(defn hex->str [hex]
-  (apply str hex))
-
-(defn hex->int [hex]
-  (Integer/parseInt (hex->str hex)))
+;; I always feel like I've failed if I have to use loop/recur, but I can't come
+;; up with a better way to do this. I'd reduce, but I need to know the length
+;; of the remaining sequence each step.
+(defn seq->int [seq]
+  (loop [s seq
+         i 0]
+    (if (empty? s)
+      i
+      (recur (rest s)
+             (+ i (* (first s) (pow7 (- (count s) 1))))))))
 
 (defn inv 
   "Returns the inverse of an address,
   which is the address equidistant across the origin"
-  [hex]
-  (map #(if (zero? %) 0 (- 7 %)) hex))
-
-(defn +mod7 [x y]
-  (mod (+ x y) 7))
-
-(defn *mod7 [x y]
-  (mod (* x y) 7))
+  [x]
+  (seq->int
+   (map #(if (zero? %) 0 (- 7 %)) (int->seq x))))
 
 (defn- sum-digits
   "Sums a sequence of digits and returns a tuple
@@ -125,59 +127,60 @@
 ;; TODO: add an addition function that takes an aggregate level and wraps at that level
 (defn add
   "Adds GBT2 addresses which is translation by vector addition"
-  ([] '(0))
-  ([hex] hex)
-  ([hex1 hex2] 
-   (loop [hex1-rev (reverse hex1)
-          hex2-rev (reverse hex2)
+  ([] 0)
+  ([x] x)
+  ([x y] 
+   (loop [x-rev (int->revseq x)
+          y-rev (int->revseq y)
           carries ()
-          sum-hex ()]
-     (if (and (empty? hex1-rev) (empty? hex2-rev) (empty? carries))
-       (let [unpadded-hex (drop-while zero? sum-hex)]
-         (if (empty? unpadded-hex)
-           '(0)
-           unpadded-hex))
-       (let [work (filter #(not (nil? %)) (conj carries (first hex1-rev) (first hex2-rev)))
-             [sum next-carry] (sum-digits work)]
-         (recur (rest hex1-rev)
-                (rest hex2-rev)
+          sum ()]
+     (if (and (empty? x-rev) (empty? y-rev) (empty? carries))
+       (let [unpadded-sum (drop-while zero? sum)]
+         (if (empty? unpadded-sum)
+           0
+           (seq->int unpadded-sum)))
+       (let [work (filter #(not (nil? %)) (conj carries (first x-rev) (first y-rev)))
+             [curr-sum next-carry] (sum-digits work)]
+         (recur (rest x-rev)
+                (rest y-rev)
                 next-carry
-                (conj sum-hex sum))))))
-  ([hex1 hex2 & more]
-   (reduce add (add hex1 hex2) more)))
+                (conj sum curr-sum))))))
+  ([z y & more]
+   (reduce add (add z y) more)))
 
 (defn sub
   "Subtracts GBT2 addresses. x - y = x + inverse of y
   which returns the vector from y to x"
-  ([] '(0))
-  ([hex] (inv hex))
-  ([hex1 hex2] (add hex1 (inv hex2)))
-  ([hex1 hex2 & more]
-   (reduce sub (sub hex1 hex2) more)))
+  ([] 0)
+  ([x] (inv x))
+  ([x y] (add x (inv y)))
+  ([x y & more]
+   (reduce sub (sub x y) more)))
 
 ;; I'm doing this with partial sums, should I rewrite it to add in place
 ;; like Knuth shows in his classical algorithms chapter?
 ;; GBT2 multiplication is performed mod 7 and has no carries, yay!
 (defn mul
   "Multiply GBT2 addresses which performs rotation"
-  ([] '(0))
-  ([hex] hex)
-  ([hex1 hex2]
-   (loop [hex1-rev (reverse hex1)
-          place-padding ()
-          partial-sums ()]
-     (if (empty? hex1-rev)
-       (apply add partial-sums)
-       (let [curr-multiplier (first hex1-rev)]
-         (recur (rest hex1-rev)
-                (conj place-padding 0)
-                (if (zero? curr-multiplier)
-                  partial-sums
-                  (conj partial-sums
-                        (concat (map #(*mod7 % curr-multiplier) hex2)
-                         place-padding))))))))
-  ([hex1 hex2 & more]
-   (reduce mul (mul hex1 hex2) more)))
+  ([] 0)
+  ([x] x)
+  ([x y]
+   (let [y-seq (int->seq y)]
+     (loop [x-rev (int->revseq x)
+            place-padding ()
+            partial-sums ()]
+       (if (empty? x-rev)
+         (seq->int (apply add partial-sums))
+         (let [curr-multiplier (first x-rev)]
+           (recur (rest x-rev)
+                  (conj place-padding 0)
+                  (if (zero? curr-multiplier)
+                    partial-sums
+                    (conj partial-sums
+                          (concat (map #(*mod7 % curr-multiplier) y-seq)
+                                  place-padding)))))))))
+  ([x y & more]
+   (reduce mul (mul x y) more)))
 
 ;; TODO: this only works for the first two aggregates. After that the skew means that 
 ;; the returned path is too long. Unskewing each translation by rotating based on 
@@ -187,8 +190,8 @@
   "Returns a sequence of unit translations that define the shortest path from
   addr1 to addr2. The count of this sequence is the Manhattan Distance.
   Any ordering of the sequence is valid assuming no obstacles"
-  ([hex]
-   (loop [curr-hex hex
+  ([x]
+   (loop [curr-hex x
           path ()]
      (println curr-hex)
      (if (every? zero? curr-hex)
@@ -204,10 +207,10 @@
 ;; Just implemented for radius 1 so far
 (defn neighbors
   "returns the neighboring hexes around a hex in a given radius"
-  [hex]
-  (map #(add hex %) first-aggregate-clockwise))
+  [x]
+  (map #(add x %) first-aggregate-clockwise))
 
 (defn create-aggregate
   "Creates a set of hex addresses for aggregate n (7^n hexes)"
   [n]
-  (map int->hex (range (Math/pow 7 n))))
+  (range (Math/pow 7 n)))
