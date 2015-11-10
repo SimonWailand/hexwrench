@@ -12,15 +12,13 @@
 ;;;; 4     2
 ;;;;    6
 (ns hexwrench.gbt2
-  (:require [hexwrench.core :as hc]))
+  (:require [hexwrench.core :as hc]
+            [hexwrench.gbt :as gbt]))
 
-;; According to https://github.com/RhysU/descendu/
-;; who might have seen the original paper:
+;; According to https://github.com/RhysU/descendu/ who might have seen the original paper:
 ;; "Gibson and Lucas hint at something nicer...
-;;     "There is a very quick and general algorithm for the
-;;      addition of base digits in any dimension"
-;; ...but then give no further hints.  For now, the
-;; carry table is explicitly encoded."
+;; "There is a very quick and general algorithm for the addition of base digits in any dimension"
+;; ...but then give no further hints.  For now, the carry table is explicitly encoded."
 (def add-carry-lut [[0 0 0 0 0 0 0]
                     [0 1 0 3 0 1 0]
                     [0 0 2 2 0 0 6]
@@ -30,9 +28,19 @@
                     [0 0 6 0 4 0 6]])
 
 (def first-aggregate-clockwise [1 3 2 6 4 5])
-(def angles-clockwise [0 60 120 180 240 300])
+(def angles-clockwise {1 0 3 60 2 120 6 180 4 240 5 300})
 
-(def skew (Math/atan hc/apothem))
+;(def skew (Math/atan hc/apothem)); this is very wrong!
+
+(defn +mod7 [x y]
+  (mod (+ x y) 7))
+
+(defn *mod7 [x y]
+  (mod (* x y) 7))
+
+(defn pow7 [x]
+  (long (Math/pow 7 x)));Math/pow returns a double
+
 
 ;; Could also do this via String casting, repeated division, or logarithms
 ;; Clojure uses Longs internally. MAX_VALUE is 9223372036854775807 or
@@ -62,15 +70,6 @@
    (< x 558545864083284032) 21
    :else 22))
 
-(defn +mod7 [x y]
-  (mod (+ x y) 7))
-
-(defn *mod7 [x y]
-  (mod (* x y) 7))
-
-(defn pow7 [x]
-  (long (Math/pow 7 x)));Math/pow returns a double
-
 (defn int->seq [x]
   (lazy-seq
    (let [n (len x)
@@ -98,6 +97,9 @@
       i
       (recur (rest s)
              (+ i (* (first s) (pow7 (- (count s) 1))))))))
+
+(extend-protocol GBTOps
+  )
 
 (defn inv 
   "Returns the inverse of an address,
@@ -144,18 +146,14 @@
          (recur (rest x-rev)
                 (rest y-rev)
                 next-carry
-                (conj sum curr-sum))))))
-  ([z y & more]
-   (reduce add (add z y) more)))
+                (conj sum curr-sum)))))))
 
 (defn sub
   "Subtracts GBT2 addresses. x - y = x + inverse of y
   which returns the vector from y to x"
   ([] 0)
   ([x] (inv x))
-  ([x y] (add x (inv y)))
-  ([x y & more]
-   (reduce sub (sub x y) more)))
+  ([x y] (add x (inv y))))
 
 ;; I'm doing this with partial sums, should I rewrite it to add in place
 ;; like Knuth shows in his classical algorithms chapter?
@@ -178,14 +176,11 @@
                     partial-sums
                     (conj partial-sums
                           (concat (map #(*mod7 % curr-multiplier) y-seq)
-                                  place-padding)))))))))
-  ([x y & more]
-   (reduce mul (mul x y) more)))
+                                  place-padding))))))))))
 
 ;; TODO: this only works for the first two aggregates. After that the skew means that 
 ;; the returned path is too long. Unskewing each translation by rotating based on 
 ;; some threshold might be a solution. Skew is 19.11 degrees per aggregate
-;; (arctan (/ (sqrt 3) 2))
 (defn shortest-path 
   "Returns a sequence of unit translations that define the shortest path from
   addr1 to addr2. The count of this sequence is the Manhattan Distance.
