@@ -97,6 +97,7 @@
           [(first coll) ()]
           (rest coll)))
 
+;; TODO: some of these might benefit from (memoize)
 (extend-protocol GBTOps
   Long
   (len [x]
@@ -125,14 +126,29 @@
      :else 22))
   (inv [x]
     (seq->int (inv (int->seq x))))
-  (add [x y])
+  (add [x y]
+    (loop [x-rev (int->revseq x)
+           y-rev (int->revseq y)
+           carries ()
+           sum ()]
+      (if (and (empty? x-rev) (empty? y-rev) (empty? carries))
+        (let [unpadded-sum (drop-while zero? sum)]
+          (if (empty? unpadded-sum) 0 (seq->int unpadded-sum)))
+        (let [work (filter #(not (nil? %)) (conj carries (first x-rev) (first y-rev)))
+              [curr-sum next-carry] (sum-digits work)]
+          (recur (rest x-rev)
+                 (rest y-rev)
+                 next-carry
+                 (conj sum curr-sum))))))
   (sub [x y]
     (add x (inv y)))
   (mul [x y])
   (shortest-path 
-    ([x])
-    ([x y]))
-  (neighbors [x n])
+    ([x] (map seq->int (shortest-path (int->seq x))))
+    ([x y]
+     (shortest-path (sub x y))))
+  (neighbors [x n]
+    (map #(add x %) first-aggregate-clockwise))
 
   clojure.lang.IPersistentCollection
   (len [x]
@@ -150,7 +166,7 @@
            sum ()]
       (if (and (empty? x-rev) (empty? y-rev) (empty? carries))
         (let [unpadded-sum (drop-while zero? sum)]
-          (if (empty? unpadded-sum) (conj (empty x) 0) unpadded-sum))
+          (if (empty? unpadded-sum) '(0) unpadded-sum))
         (let [work (filter #(not (nil? %)) (conj carries (first x-rev) (first y-rev)))
               [curr-sum next-carry] (sum-digits work)]
           (recur (rest x-rev)
@@ -188,7 +204,7 @@
      (shortest-path (sub x y)))); Translate "from" by moving "to" to the origin
   ;; Just implemented for radius 1 so far
   (neighbors [x n]
-    (map #(add x %) first-aggregate-clockwise)))
+    (map #(add x %) (partition-all 1 first-aggregate-clockwise))))
 
 (defn create-aggregate
   "Creates a set of hex addresses for aggregate n (7^n hexes)"
