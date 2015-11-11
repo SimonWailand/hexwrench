@@ -66,6 +66,7 @@
                nil
                (int->seq (- x (* d p))))))))
 
+;; This is like 5 times faster than (reverse (int->seq x))
 (defn int->revseq [x]
   (lazy-seq
    (cons (mod x 7)
