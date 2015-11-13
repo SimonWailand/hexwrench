@@ -57,14 +57,18 @@
   (shortest-path [x] [x y] "Returns a sequence of unit 1 translations to transform one GBT value to another. The count of this collection is the Manhattan Distance.")
   (neighbors [x n] "Return a GBT value's neighbors for radius n."))
 
-(defn int->seq [x]
-  (lazy-seq
-   (let [n (len x)
-         p (pow7 (- n 1))
-         d (quot x p)]
-     (cons d (if (= n 1)
+;; Not sure how to do this as a lazy-seq (i.e. not building it backwards)
+;; without passing the length, otherwise 0s get dropped except last
+(defn int->seq
+  ([x]
+   (int->seq x (- (len x) 1)))
+  ([x n]
+   (lazy-seq
+    (let [p (pow7 n)]
+      (cons (quot x p)
+            (if (zero? n)
                nil
-               (int->seq (- x (* d p))))))))
+               (int->seq (mod x p) (- n 1))))))))
 
 ;; This is like 5 times faster than (reverse (int->seq x))
 (defn int->revseq [x]
@@ -145,7 +149,7 @@
     (add x (inv y)))
   (mul [x y])
   (shortest-path 
-    ([x] (map seq->int (shortest-path (int->seq x))))
+    ([x] (flatten (shortest-path (int->seq x))))
     ([x y]
      (shortest-path (sub x y))))
   (neighbors [x n]
