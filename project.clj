@@ -3,7 +3,7 @@
   :url "https://github.com/SimonWailand/hexwrench"
 
   :dependencies [[org.clojure/clojure "1.7.0"]
-                 #?@(:cljs [org.clojure/clojurescript "1.7.145"]
+                #_(:cljs [org.clojure/clojurescript "1.7.145"]
                            [reagent "0.5.1"])]
 
   :source-paths ["src/clj"
