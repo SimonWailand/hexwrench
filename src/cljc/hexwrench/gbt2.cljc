@@ -199,10 +199,12 @@
   (shortest-path
     ([x]
      (loop [curr-hex x
-            path ()]
+            path []]
        (if (every? zero? curr-hex)
          path
          (let [move (inv (take 1 curr-hex))]; Move is the inverse of the most significant digit
+           #_(clojure.pprint/pprint curr-hex)
+           #_(clojure.pprint/pprint move)
            (recur (add curr-hex move)
                   (conj path move))))))
     ([x y]
