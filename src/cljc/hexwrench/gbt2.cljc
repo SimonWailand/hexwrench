@@ -23,6 +23,13 @@
 ;; "Gibson and Lucas hint at something nicer...
 ;; "There is a very quick and general algorithm for the addition of base digits in any dimension"
 ;; ...but then give no further hints.  For now, the carry table is explicitly encoded."
+(def add-lut [[0 1 2 3 4 5 6]
+              [1 2 3 4 5 6 0]
+              [2 3 4 5 6 0 1]
+              [3 4 5 6 0 1 2]
+              [4 5 6 0 1 2 3]
+              [5 6 0 1 2 3 4]
+              [6 0 1 2 3 4 5]])
 
 ;; Notes: carry digit is only used when the addends are <= 60 degrees from each other.
 ;; The carry digit is the most clockwise addend
@@ -34,18 +41,48 @@
                     [0 1 0 0 5 5 0]
                     [0 0 6 0 4 0 6]])
 
-(def first-aggregate-clockwise [1 3 2 6 4 5])
-(def angles-clockwise {1 0 3 60 2 120 6 180 4 240 5 300})
+(def mult-lut [[0 0 0 0 0 0 0]
+               [0 1 2 3 4 5 6]
+               [0 2 4 6 1 3 5]
+               [0 3 6 2 5 1 4]
+               [0 4 1 5 2 6 3]
+               [0 5 3 1 6 4 2]
+               [0 6 5 4 3 2 1]])
 
-;; These can probably all be replaced by LUTs. Would it be faster? Find out someday.
+(def first-aggregate-cw [1 3 2 6 4 5])
+(def first-aggregate-angles-ccw [nil 0 240 300 120 60 180])
+
+;; Change this to base 7? Just up to long max value
+(def pow7 [1
+           7
+           49
+           343
+           2041
+           16807
+           117649
+           823543
+           5764801
+           40353607
+           282475249
+           1977326743
+           13841287201
+           96889010407
+           678223072849 
+           4747561509943
+           33232930569601
+           232630513987207
+           1628413597910449
+           11398895185373144
+           79792266297612000
+           558545864083284032
+           3909821048582988288])
+
+;; Change these from look-ups to memoized functions?
 (defn +mod7 [x y]
-  (mod (+ x y) 7))
+  (get-in add-lut [x y]))
 
 (defn *mod7 [x y]
-  (mod (* x y) 7))
-
-(defn pow7 [x]
-  (long (Math/pow 7 x))); Math/pow returns a double
+  (get-in mult-lut [x y]))
 
 (defprotocol GBTOps
   "Generalized Balanced Ternary Operations"
@@ -106,29 +143,7 @@
 (extend-protocol GBTOps
   Long
   (len [x]
-    (cond
-     (< x 7) 1
-     (< x 49) 2
-     (< x 343) 3
-     (< x 2041) 4
-     (< x 16807) 5
-     (< x 117649) 6
-     (< x 823543) 7
-     (< x 5764801) 8
-     (< x 40353607) 9
-     (< x 282475249) 10
-     (< x 1977326743) 11
-     (< x 13841287201) 12
-     (< x 96889010407) 13
-     (< x 678223072849) 14
-     (< x 4747561509943) 15
-     (< x 33232930569601) 16
-     (< x 232630513987207) 17
-     (< x 1628413597910449) 18
-     (< x 11398895185373144) 19
-     (< x 79792266297612000) 20
-     (< x 558545864083284032) 21
-     :else 22))
+    (count ((split-with #(>= x %) pow7) 0))); seems ugly?
   (inv [x]
     (seq->int (inv (int->seq x))))
   (add [x y]
@@ -153,7 +168,7 @@
     ([x y]
      (shortest-path (sub x y))))
   (neighbors [x n]
-    (map #(add x %) first-aggregate-clockwise))
+    (map #(add x %) first-aggregate-cw))
 
   clojure.lang.IPersistentCollection
   (len [x]
@@ -211,7 +226,7 @@
      (shortest-path (sub x y)))); Translate "from" by moving "to" to the origin
   ;; Just implemented for radius 1 so far
   (neighbors [x n]
-    (map #(add x %) (partition-all 1 first-aggregate-clockwise))))
+    (map #(add x %) (partition-all 1 first-aggregate-cw))))
 
 (defn create-aggregate
   "Creates a set of hex addresses for aggregate n (7^n hexes)"
