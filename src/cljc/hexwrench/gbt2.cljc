@@ -49,7 +49,7 @@
                [0 5 3 1 6 4 2]
                [0 6 5 4 3 2 1]])
 
-(def first-aggregate-cw [1 3 2 6 4 5])
+(def first-aggregate-cw [[1] [3] [2] [6] [4] [5]])
 (def first-aggregate-angles-ccw [nil 0 240 300 120 60 180])
 
 ;; Change this to base 7? Just up to long max value
@@ -83,16 +83,6 @@
 
 (defn *mod7 [x y]
   (get-in mult-lut [x y]))
-
-(defprotocol GBTOps
-  "Generalized Balanced Ternary Operations"
-  (len [x] "Return the number of digits in a GBT value, i.e. what aggregate it is in.")
-  (inv [x] "Invert a GBT value.")
-  (add [x y] "Add GBT values, spatially equivalent to vector addition.")
-  (sub [x y] "Difference between GBT values, i.e. add the first value to the inverse of the second.")
-  (mul [x y] "Multiply GBT values, spatially this is rotation.")
-  (shortest-path [x] [x y] "Returns a sequence of unit 1 translations to transform one GBT value to another. The count of this collection is the Manhattan Distance.")
-  (neighbors [x n] "Return a GBT value's neighbors for radius n."))
 
 ;; Not sure how to do this as a lazy-seq (i.e. not building it backwards)
 ;; without passing the length, otherwise 0s get dropped except last
@@ -139,96 +129,90 @@
           [(first coll) ()]
           (rest coll)))
 
-;; TODO: some of these might benefit from (memoize)
-(extend-protocol GBTOps
-  Long
-  (len [x]
-    (count ((split-with #(>= x %) pow7) 0))); seems ugly?
-  (inv [x]
-    (seq->int (inv (int->seq x))))
-  (add [x y]
-    (loop [x-rev (int->revseq x)
-           y-rev (int->revseq y)
-           carries ()
-           sum ()]
-      (if (and (empty? x-rev) (empty? y-rev) (empty? carries))
-        (let [unpadded-sum (drop-while zero? sum)]
-          (if (empty? unpadded-sum) 0 (seq->int unpadded-sum)))
-        (let [work (filter #(not (nil? %)) (conj carries (first x-rev) (first y-rev)))
-              [curr-sum next-carry] (sum-digits work)]
-          (recur (rest x-rev)
-                 (rest y-rev)
-                 next-carry
-                 (conj sum curr-sum))))))
-  (sub [x y]
-    (add x (inv y)))
-  (mul [x y])
-  (shortest-path 
-    ([x] (flatten (shortest-path (int->seq x))))
-    ([x y]
-     (shortest-path (sub x y))))
-  (neighbors [x n]
-    (map #(add x %) first-aggregate-cw))
+;;; TODO: some of these might benefit from (memoize)
+(defn len
+  "Return the number of digits in a GBT value, i.e. what aggregate it is in."
+  [x]
+  (if (instance? Long x)
+    (count ((split-with #(>= x %) pow7) 0)); seems ugly?
+    ;; x should be a sequence
+    (count x)))
 
-  clojure.lang.IPersistentCollection
-  (len [x]
-    (count x))
-  (inv [x]
-    (map #(if (zero? %) 0 (- 7 %)) x))
-  ;; Holy moly this seems gross. In other languages I would do a lot of array
-  ;; index shenaningans here. The idea for this came from Knuth and
-  ;; http://lburja.blogspot.com/2010/07/toy-algorithms-with-numbers-in-clojure.html
-  ;; TODO: add an addition function that takes an aggregate level and wraps at that level
-  (add [x y]
-    (loop [x-rev (reverse x)
-           y-rev (reverse y)
-           carries ()
-           sum ()]
-      (if (and (empty? x-rev) (empty? y-rev) (empty? carries))
-        (let [unpadded-sum (drop-while zero? sum)]
-          (if (empty? unpadded-sum) '(0) unpadded-sum))
-        (let [work (filter #(not (nil? %)) (conj carries (first x-rev) (first y-rev)))
-              [curr-sum next-carry] (sum-digits work)]
-          (recur (rest x-rev)
-                 (rest y-rev)
-                 next-carry
-                 (conj sum curr-sum))))))
-  (sub [x y]
-    (add x (inv y)))
-  (mul [x y]
-    (loop [x-rev (reverse x)
-           place-padding ()
-           partial-sums ()]
-      (if (empty? x-rev)
-        (apply add partial-sums)
-        (let [curr-multiplier (first x-rev)]
-          (recur (rest x-rev)
-                 (conj place-padding 0)
-                 (if (zero? curr-multiplier)
-                   partial-sums
-                   (conj partial-sums
-                         (concat (map #(*mod7 % curr-multiplier) y) place-padding))))))))
-  ;; TODO: this only works for the first two aggregates. After that the skew means that 
-  ;; the returned path is too long. Unskewing each translation by rotating based on 
-  ;; some threshold might be a solution. Skew is 19.11 degrees per aggregate
-  (shortest-path
-    ([x]
-     (loop [curr-hex x
-            path []]
-       (if (every? zero? curr-hex)
-         path
-         (let [move (inv (take 1 curr-hex))]; Move is the inverse of the most significant digit
-           #_(clojure.pprint/pprint curr-hex)
-           #_(clojure.pprint/pprint move)
-           (recur (add curr-hex move)
-                  (conj path move))))))
-    ([x y]
-     (shortest-path (sub x y)))); Translate "from" by moving "to" to the origin
-  ;; Just implemented for radius 1 so far
-  (neighbors [x n]
-    (map #(add x %) (partition-all 1 first-aggregate-cw))))
+;; Same as multiplying by 6?
+(defn inv
+  "Invert a GBT value."
+  [x]
+  (map #(if (zero? %) 0 (- 7 %)) x))
+
+;; Holy moly this seems gross. In other languages I would do a lot of array
+;; index shenaningans here. The idea for this came from Knuth and
+;; http://lburja.blogspot.com/2010/07/toy-algorithms-with-numbers-in-clojure.html
+;; TODO: add an addition function that takes an aggregate level and wraps at that level
+(defn add 
+  "Add GBT values, spatially equivalent to vector addition."
+  ([x] x)
+  ([x y]
+   (loop [x-rev (reverse x)
+          y-rev (reverse y)
+          carries ()
+          sum ()]
+     (if (and (empty? x-rev) (empty? y-rev) (empty? carries))
+       (let [unpadded-sum (drop-while zero? sum)]
+         (if (empty? unpadded-sum) '(0) unpadded-sum))
+       (let [work (filter #(not (nil? %)) (conj carries (first x-rev) (first y-rev)))
+             [curr-sum next-carry] (sum-digits work)]
+         (recur (rest x-rev)
+                (rest y-rev)
+                next-carry
+                (conj sum curr-sum)))))))
+
+(defn sub 
+  "Difference between GBT values, i.e. add the first value to the inverse of the second."
+  [x y]
+  (add x (inv y)))
+
+(defn mul 
+  "Multiply GBT values, spatially this is rotation."
+  [x y]
+  (loop [x-rev (reverse x)
+         place-padding ()
+         partial-sums ()]
+    (if (empty? x-rev)
+      (apply add partial-sums)
+      (let [curr-multiplier (first x-rev)]
+        (recur (rest x-rev)
+               (conj place-padding 0)
+               (if (zero? curr-multiplier)
+                 partial-sums
+                 (conj partial-sums
+                       (concat (map #(*mod7 % curr-multiplier) y) place-padding))))))))
+
+;; TODO: this only works for the first two aggregates. After that the skew means that 
+;; the returned path is too long. Unskewing each translation by rotating based on 
+;; some threshold might be a solution. Skew is 19.11 degrees per aggregate
+(defn shortest-path
+  "Returns a sequence of unit 1 translations to transform one GBT value to another.
+  The count of this collection is the Manhattan Distance."
+ ([x]
+  (loop [curr-hex x
+         path []]
+    (if (every? zero? curr-hex)
+      path
+      (let [move (inv (take 1 curr-hex))]; Move is the inverse of the most significant digit
+        #_(clojure.pprint/pprint curr-hex)
+        #_(clojure.pprint/pprint move)
+        (recur (add curr-hex move)
+               (conj path move))))))
+ ([x y]
+  (shortest-path (sub x y)))); Translate "from" by moving "to" to the origin
+
+;; Just implemented for radius 1 so far
+(defn neighbors
+  "Return a GBT value's neighbors for radius n."
+  [x]
+  (map #(add x %) first-aggregate-cw))
 
 (defn create-aggregate
   "Creates a set of hex addresses for aggregate n (7^n hexes)"
   [n]
-  (range (Math/pow 7 n)))
+  (range (pow7 n)))
