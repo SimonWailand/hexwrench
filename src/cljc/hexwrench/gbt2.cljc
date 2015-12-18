@@ -84,6 +84,14 @@
 (defn *mod7 [x y]
   (get-in mult-lut [x y]))
 
+(defn len
+  "Return the number of digits in a GBT value, i.e. what aggregate it is in."
+  [x]
+  (if (instance? Long x)
+    (count ((split-with #(>= x %) pow7) 0)); seems ugly?
+    ;; x should be a sequence
+    (count x)))
+
 ;; Not sure how to do this as a lazy-seq (i.e. not building it backwards)
 ;; without passing the length, otherwise 0s get dropped except last
 (defn int->seq
@@ -130,13 +138,6 @@
           (rest coll)))
 
 ;;; TODO: some of these might benefit from (memoize)
-(defn len
-  "Return the number of digits in a GBT value, i.e. what aggregate it is in."
-  [x]
-  (if (instance? Long x)
-    (count ((split-with #(>= x %) pow7) 0)); seems ugly?
-    ;; x should be a sequence
-    (count x)))
 
 ;; Same as multiplying by 6?
 (defn inv
@@ -218,18 +219,19 @@
   [n]
   (range (pow7 n)))
 
-;; Clean this all up! Doesn't work! Doesn't handle 0s!
+;; Clean this all up! Doesn't work!
 (defn to-cartesian
   "Converts a GBT2 address to Cartesian coordinates [x y]. Based on unit sided hexes."
   [x]
-  (loop [x x
+  (loop [x (drop-while zero? x)
          coords [0 0]]
     (if (empty? x)
       coords
-      (let [digit (count x)
-            skew (* digit 19.11)
+      (let [offset (- (count x) 1)
+            skew (* offset 19.11)
             theta (+ skew (first-aggregate-angles-ccw (first x)))
-            radius (- (Math/sqrt (* 3 (pow7 (- digit 1)))))]
-        (recur (rest x)
-               [(+ (coords 0) (* radius (Math/sin theta)))
-                (+ (coords 1) (* radius (Math/cos theta)))])))))
+            radius (- (Math/sqrt (* 3 (pow7 offset))))
+            [curr-x curr-y] coords]
+        (recur (drop-while zero? (rest x))
+               [(-> theta Math/toRadians Math/sin (* radius) (+ curr-x))
+                (-> theta Math/toRadians Math/cos (* radius) (+ curr-y))])))))
