@@ -209,10 +209,27 @@
 ;; Just implemented for radius 1 so far
 (defn neighbors
   "Return a GBT value's neighbors for radius n."
-  [x]
-  (map #(add x %) first-aggregate-cw))
+  ([x]
+   (map #(add x %) first-aggregate-cw))
+  ([x n]))
 
 (defn create-aggregate
   "Creates a set of hex addresses for aggregate n (7^n hexes)"
   [n]
   (range (pow7 n)))
+
+;; Clean this all up! Doesn't work! Doesn't handle 0s!
+(defn to-cartesian
+  "Converts a GBT2 address to Cartesian coordinates [x y]. Based on unit sided hexes."
+  [x]
+  (loop [x x
+         coords [0 0]]
+    (if (empty? x)
+      coords
+      (let [digit (count x)
+            skew (* digit 19.11)
+            theta (+ skew (first-aggregate-angles-ccw (first x)))
+            radius (- (Math/sqrt (* 3 (pow7 (- digit 1)))))]
+        (recur (rest x)
+               [(+ (coords 0) (* radius (Math/sin theta)))
+                (+ (coords 1) (* radius (Math/cos theta)))])))))
