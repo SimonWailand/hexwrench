@@ -96,14 +96,13 @@
 ;; without passing the length, otherwise 0s get dropped except last
 (defn int->seq
   ([x]
-   (int->seq x (- (len x) 1)))
+   (int->seq x (dec (len x))))
   ([x n]
    (lazy-seq
     (let [p (pow7 n)]
       (cons (quot x p)
-            (if (zero? n)
-               nil
-               (int->seq (mod x p) (- n 1))))))))
+            (if-not (zero? n)
+              (int->seq (mod x p) (dec n))))))))
 
 ;; This is like 5 times faster than (reverse (int->seq x))
 (defn int->revseq [x]
@@ -111,8 +110,7 @@
    (cons (mod x 7)
          (let [q (quot x 7)]
            (if (pos? q) 
-             (int->revseq q)
-             nil)))))
+             (int->revseq q))))))
 
 (defn seq->int [seq]
   (loop [s seq
@@ -120,7 +118,7 @@
     (if (empty? s)
       i
       (recur (rest s)
-             (+ i (* (first s) (pow7 (- (count s) 1))))))))
+             (+ i (* (first s) (pow7 (dec (count s)))))))))
 
 (defn- sum-digits
   "Sums a sequence of digits and returns a tuple
@@ -131,7 +129,7 @@
             (let [[prior-sum carries] sum-n-carries
                   carry (get-in add-carry-lut [prior-sum x])]
               [(+mod7 prior-sum x)
-               (if (not (or (nil? carry) (zero? carry)))
+               (if-not (or (nil? carry) (zero? carry))
                  (conj carries carry)
                  carries)]))
           [(first coll) ()]
@@ -200,8 +198,8 @@
     (if (every? zero? curr-hex)
       path
       (let [move (inv (take 1 curr-hex))]; Move is the inverse of the most significant digit
-        #_(clojure.pprint/pprint curr-hex)
-        #_(clojure.pprint/pprint move)
+        #_(println curr-hex)
+        #_(println move)
         (recur (add curr-hex move)
                (conj path move))))))
  ([x y]
@@ -219,7 +217,8 @@
   [n]
   (range (pow7 n)))
 
-;; Clean this all up! Doesn't work!
+;; Hmmm...this works, but lots of floating point inaccuracy. Will it actually be noticeable?
+;; Maybe someday do without sin/cos
 (defn to-cartesian
   "Converts a GBT2 address to Cartesian coordinates [x y]. Based on unit sided hexes."
   [x]
@@ -227,11 +226,11 @@
          coords [0 0]]
     (if (empty? x)
       coords
-      (let [offset (- (count x) 1)
+      (let [offset (dec (count x))
             skew (* offset 19.11)
             theta (+ skew (first-aggregate-angles-ccw (first x)))
-            radius (- (Math/sqrt (* 3 (pow7 offset))))
+            radius (Math/sqrt (* 3 (pow7 offset)))
             [curr-x curr-y] coords]
         (recur (drop-while zero? (rest x))
-               [(-> theta Math/toRadians Math/sin (* radius) (+ curr-x))
+               [(-> theta Math/toRadians Math/sin (* radius) - (+ curr-x))
                 (-> theta Math/toRadians Math/cos (* radius) (+ curr-y))])))))
