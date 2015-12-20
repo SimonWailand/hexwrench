@@ -88,7 +88,9 @@
   "Return the number of digits in a GBT value, i.e. what aggregate it is in."
   [x]
   (if (instance? Long x)
-    (count ((split-with #(>= x %) pow7) 0)); seems ugly?
+    (if (zero? x)
+      1
+      (count (take-while #(<= % x) pow7)))
     ;; x should be a sequence
     (count x)))
 
@@ -158,7 +160,7 @@
      (if (and (empty? x-rev) (empty? y-rev) (empty? carries))
        (let [unpadded-sum (drop-while zero? sum)]
          (if (empty? unpadded-sum) '(0) unpadded-sum))
-       (let [work (filter #(not (nil? %)) (conj carries (first x-rev) (first y-rev)))
+       (let [work (remove nil? (conj carries (first x-rev) (first y-rev)))
              [curr-sum next-carry] (sum-digits work)]
          (recur (rest x-rev)
                 (rest y-rev)

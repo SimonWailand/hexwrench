@@ -8,6 +8,8 @@
                 #_(:cljs [org.clojure/clojurescript "1.7.145"]
                          [reagent "0.5.1"])]
 
+  :plugins [[lein-kibit "0.1.2"]]
+
   :source-paths ["src/clj"
                  "src/cljc"
                  "src/cljs"])
