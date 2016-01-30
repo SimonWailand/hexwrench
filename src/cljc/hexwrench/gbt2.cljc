@@ -77,6 +77,23 @@
            558545864083284032
            3909821048582988288])
 
+;;; Wrappers for host interop
+(defn- sqrt [x]
+  #?(:clj (Math/sqrt x)
+     :cljs (.sqrt js/Math x)))
+
+(defn- to-radians [x]
+  #?(:clj (Math/toRadians x) 
+     :cljs (* x (/ (.-PI js/Math) 180))))
+
+(defn- sin [x]
+  #?(:clj (Math/sin x)
+     :cljs (.sin js/Math x)))
+
+(defn- cos [x]
+  #?(:clj (Math/cos x)
+     :cljs (.cos js/Math x)))
+
 ;; Change these from look-ups to memoized functions?
 (defn +mod7 [x y]
   (get-in add-lut [x y]))
@@ -200,8 +217,6 @@
     (if (every? zero? curr-hex)
       path
       (let [move (inv (take 1 curr-hex))]; Move is the inverse of the most significant digit
-        #_(println curr-hex)
-        #_(println move)
         (recur (add curr-hex move)
                (conj path move))))))
  ([x y]
@@ -231,8 +246,8 @@
       (let [offset (dec (count x))
             skew (* offset 19.11)
             theta (+ skew (first-aggregate-angles-ccw (first x)))
-            radius (Math/sqrt (* 3 (pow7 offset)))
+            radius (sqrt (* 3 (pow7 offset)))
             [curr-x curr-y] coords]
         (recur (drop-while zero? (rest x))
-               [(-> theta Math/toRadians Math/sin (* radius) - (+ curr-x))
-                (-> theta Math/toRadians Math/cos (* radius) (+ curr-y))])))))
+               [(-> theta to-radians sin (* radius) - (+ curr-x))
+                (-> theta to-radians cos (* radius) (+ curr-y))])))))
