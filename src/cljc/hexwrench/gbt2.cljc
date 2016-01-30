@@ -87,7 +87,7 @@
 (defn len
   "Return the number of digits in a GBT value, i.e. what aggregate it is in."
   [x]
-  (if (instance? java.lang.Long x)
+  (if (integer? x)
     (if (zero? x)
       1
       (count (take-while #(<= % x) pow7)))
