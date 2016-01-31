@@ -17,7 +17,8 @@
 ;;;; 4     2
 ;;;;    6
 (ns hexwrench.gbt2
-  (:require [hexwrench.core :as hex]))
+  (:require [hexwrench.core :as hex]
+            [hexwrench.math-interop :as m]))
 
 ;; According to https://github.com/RhysU/descendu/ who might have seen the original paper:
 ;; "Gibson and Lucas hint at something nicer...
@@ -76,23 +77,6 @@
            79792266297612000
            558545864083284032
            3909821048582988288])
-
-;;; Wrappers for host interop
-(defn- sqrt [x]
-  #?(:clj (Math/sqrt x)
-     :cljs (.sqrt js/Math x)))
-
-(defn- to-radians [x]
-  #?(:clj (Math/toRadians x) 
-     :cljs (* x (/ (.-PI js/Math) 180))))
-
-(defn- sin [x]
-  #?(:clj (Math/sin x)
-     :cljs (.sin js/Math x)))
-
-(defn- cos [x]
-  #?(:clj (Math/cos x)
-     :cljs (.cos js/Math x)))
 
 ;; Change these from look-ups to memoized functions?
 (defn +mod7 [x y]
@@ -246,8 +230,8 @@
       (let [offset (dec (count x))
             skew (* offset 19.11)
             theta (+ skew (first-aggregate-angles-ccw (first x)))
-            radius (sqrt (* 3 (pow7 offset)))
+            radius (m/sqrt (* 3 (pow7 offset)))
             [curr-x curr-y] coords]
         (recur (drop-while zero? (rest x))
-               [(-> theta to-radians sin (* radius) - (+ curr-x))
-                (-> theta to-radians cos (* radius) (+ curr-y))])))))
+               [(-> theta m/to-radians m/sin (* radius) - (+ curr-x))
+                (-> theta m/to-radians m/cos (* radius) (+ curr-y))])))))
