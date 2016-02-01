@@ -16,3 +16,7 @@
 (defn cos [x]
   #?(:clj (Math/cos x)
      :cljs (.cos js/Math x)))
+
+(defn base7 [x]
+  #?(:clj (Integer/toString x 7)
+     :cljs (.toString x 7)))
