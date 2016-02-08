@@ -20,3 +20,7 @@
 (defn base7 [x]
   #?(:clj (Integer/toString x 7)
      :cljs (.toString x 7)))
+
+(defn abs [x]
+  #?(:clj (Math/abs x)
+     :cljs (.abs js/Math x)))

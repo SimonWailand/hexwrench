@@ -50,10 +50,10 @@
                [0 5 3 1 6 4 2]
                [0 6 5 4 3 2 1]])
 
-(def first-aggregate-cw [[1] [3] [2] [6] [4] [5]])
+(def first-aggregate-cw [1 3 2 6 4 5])
 (def first-aggregate-angles-ccw [nil 0 240 300 120 60 180])
 
-;; Change this to base 7? Just up to long max value
+;; Change this to base 7? Just up to what fits in long max value
 (def pow7 [1
            7
            49
@@ -138,40 +138,39 @@
           [(first coll) ()]
           (rest coll)))
 
-;;; TODO: some of these might benefit from (memoize)
-
 ;; Same as multiplying by 6?
 (defn inv
   "Invert a GBT value."
-  [x]
-  (map #(if (zero? %) 0 (- 7 %)) x))
+  [x] (map #(if (zero? %) 0 (- 7 %)) x))
 
 ;; Holy moly this seems gross. In other languages I would do a lot of array
 ;; index shenaningans here. The idea for this came from Knuth and
 ;; http://lburja.blogspot.com/2010/07/toy-algorithms-with-numbers-in-clojure.html
-;; TODO: add an addition function that takes an aggregate level and wraps at that level
 (defn add 
-  "Add GBT values, spatially equivalent to vector addition."
+  "Add GBT values, spatially equivalent to vector addition.
+  Third argument is aggregate level to wrap at."
   ([x] x)
   ([x y]
-   (loop [x-rev (reverse x)
-          y-rev (reverse y)
+   (add x y 22)); largest power of 7 less than Long max value
+  ([x y n]
+   (loop [x-rev (int->revseq x)
+          y-rev (int->revseq y)
           carries ()
-          sum ()]
-     (if (and (empty? x-rev) (empty? y-rev) (empty? carries))
-       (let [unpadded-sum (drop-while zero? sum)]
-         (if (empty? unpadded-sum) '(0) unpadded-sum))
+          aggregate 1
+          sum 0]
+     (if (or (> aggregate n) (and (empty? x-rev) (empty? y-rev) (empty? carries)))
+       sum
        (let [work (remove nil? (conj carries (first x-rev) (first y-rev)))
-             [curr-sum next-carry] (sum-digits work)]
+             [current-sum next-carries] (sum-digits work)]
          (recur (rest x-rev)
                 (rest y-rev)
-                next-carry
-                (conj sum curr-sum)))))))
+                next-carries
+                (inc aggregate)
+                (+ sum (* current-sum (pow7 (dec aggregate))))))))))
 
 (defn sub 
   "Difference between GBT values, i.e. add the first value to the inverse of the second."
-  [x y]
-  (add x (inv y)))
+  [x y] (add x (inv y)))
 
 (defn mul 
   "Multiply GBT values, spatially this is rotation."
@@ -207,16 +206,15 @@
   (shortest-path (sub x y)))); Translate "from" by moving "to" to the origin
 
 ;; Just implemented for radius 1 so far
+;; Return a GBT value's neighbors for radius n.
 (defn neighbors
-  "Return a GBT value's neighbors for radius n."
   ([x]
-   (map #(add x %) first-aggregate-cw))
+   (map (comp (partial add x) int->seq) first-aggregate-cw))
   ([x n]))
 
 (defn create-aggregate
   "Creates a set of hex addresses for aggregate n (7^n hexes)"
-  [n]
-  (range (pow7 n)))
+  [n] (range (pow7 n)))
 
 ;; Hmmm...this works, but lots of floating point inaccuracy. Will it actually be noticeable?
 ;; Maybe someday do without sin/cos
