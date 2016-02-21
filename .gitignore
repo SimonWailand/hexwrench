@@ -10,3 +10,11 @@ pom.xml.asc
 .hgignore
 .hg/
 *-OLD.clj*
+
+# Sublime Text shtuff
+*.sublime-project
+*.sublime-workspace
+sftp-config.json
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
