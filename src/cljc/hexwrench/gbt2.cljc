@@ -34,13 +34,17 @@
 
 ;; Notes: carry digit is only used when the addends are <= 60 degrees from each other.
 ;; The carry digit is the most clockwise addend
-(def add-carry-lut [[0 0 0 0 0 0 0]
-                    [0 1 0 3 0 1 0]
-                    [0 0 2 2 0 0 6]
-                    [0 3 2 3 0 0 0]
-                    [0 0 0 0 4 5 4]
-                    [0 1 0 0 5 5 0]
-                    [0 0 6 0 4 0 6]])
+(def add-carry-lut [[nil nil nil nil nil nil nil]
+                    [nil 1   nil 3   nil 1   nil]
+                    [nil nil 2   2   nil nil 6  ]
+                    [nil 3   2   3   nil nil nil]
+                    [nil nil nil nil 4   5   4  ]
+                    [nil 1   nil nil 5   5   nil]
+                    [nil nil 6   nil 4   nil 6  ]])
+
+;; if 0 then 0, else 7 - x
+;; Same as multiplying by 6?
+(def inv-lut [0 6 5 4 3 2 1])
 
 (def mult-lut [[0 0 0 0 0 0 0]
                [0 1 2 3 4 5 6]
@@ -91,57 +95,39 @@
 (defn len
   "Return the number of digits in a GBT value, i.e. what aggregate it is in."
   [x] (if (zero? x) 1 
-          (count (take-while (partial >= x) pow7))))
+                    (count (take-while (partial >= x) pow7))))
 
-;; Not sure how to do this as a lazy-seq (i.e. not building it backwards)
-;; without passing the length, otherwise 0s get dropped except last
 (defn int->seq
-  ([x]
-   (int->seq x (dec (len x))))
-  ([x n]
-   (lazy-seq
-    (let [p (pow7 n)]
-      (cons (quot x p)
-            (if-not (zero? n)
-              (int->seq (mod x p) (dec n))))))))
+  "Convert an integer to a sequence of base 7 digits."
+  [x] (map {\0 0 \1 1 \2 2 \3 3 \4 4 \5 5 \6 6} (m/base7 x)))
 
-;; This is like 5 times faster than (reverse (int->seq x))
-(defn int->revseq [x]
-  (lazy-seq
-   (cons (mod x 7)
-         (let [q (quot x 7)]
-           (if (pos? q) 
-             (int->revseq q))))))
-
-(defn seq->int [seq]
-  (loop [s seq
-         i 0]
-    (if (empty? s) i
-        (recur (rest s)
-               (+multiplepow7 i (first s) (dec (count s)))))))
+(defn seq->int
+  "Convert a sequence of base 7 digits to an integer."
+  [s] (apply + (map * (reverse s) pow7)))
 
 (defn- sum-digits
   "Sums a sequence of digits and returns a tuple
   created by reducing over addition mod seven and collecting
   the sequence of carry digits [sum (carries)]"
   [coll]
-  (reduce (fn [sum-n-carries x]
-            (let [[prior-sum carries] sum-n-carries
-                  carry (get-in add-carry-lut [prior-sum x])]
-              [(+mod7 prior-sum x)
-               (if-not (or (nil? carry) (zero? carry))
-                 (conj carries carry)
-                 carries)]))
-          [(first coll) ()]
-          (rest coll)))
+  (reduce
+    (fn [[prior-sum carries] x]
+      (vector
+        (+mod7 prior-sum x)
+        (if-let [carry (get-in add-carry-lut [prior-sum x])]
+          (conj carries carry)
+          carries)))
+    (vector (first coll) ())
+    (rest coll)))
 
-;; Same as multiplying by 6?
+(defn inv-seq [x] (map inv-lut x))
+
 (defn inv
   "Invert a GBT value."
-  [x] (seq->int (map #(if (zero? %) 0 (- 7 %)) (int->seq x))))
-
-(defn inv-seq [x]
-  (map #(if (zero? %) 0 (- 7 0)) x))
+  [x] (-> x
+          int->seq
+          inv-seq
+          seq->int))
 
 ;; Holy moly this seems gross. In other languages I would do a lot of array
 ;; index shenaningans here. The idea for this came from Knuth and
@@ -151,8 +137,8 @@
   ([] 0)
   ([x] x)
   ([x y]
-   (loop [x-rev (int->revseq x)
-          y-rev (int->revseq y)
+   (loop [x-rev (reverse (int->seq x))
+          y-rev (reverse (int->seq y))
           carries ()
           aggregate 1
           sum 0]
@@ -170,33 +156,6 @@
   ([x y & more]
    (reduce add (add x y) more)))
 
-;; Doesn't return what I expected in the first aggregate, works after that
-(defn add-wrap
-  "Add two GBT addresses with a maximum aggregate. Crossing into a higher aggregate
-  instead wraps around as if the tiles were on the surface of a torus."
-  ([n] 0)
-  ([n x] x); Should I just drop digits above n here?
-  ([n x y]
-   (loop [x-rev (int->revseq x)
-          y-rev (int->revseq y)
-          carries ()
-          aggregate 1
-          sum 0]
-     (if (or (> aggregate n)
-             (and (empty? x-rev)
-                  (empty? y-rev)
-                  (empty? carries)))
-       sum
-       (let [work (concat carries (take 1 x-rev) (take 1 y-rev))
-             [current-sum next-carries] (sum-digits work)]
-         (recur (rest x-rev)
-                (rest y-rev)
-                next-carries
-                (inc aggregate)
-                (+multiplepow7 sum current-sum (dec aggregate)))))))
-  ([n x y & more]
-   (reduce (partial add-wrap n) (add-wrap n x y) more)))
-
 (defn add-seq
   "Add GBT addresses that are already in the form of sequences and return a sequence.
   Useful for certain intermediary steps during other operations."
@@ -206,15 +165,6 @@
    )
   ([x y & more]
    (reduce add-seq (add-seq x y) more)))
-
-(defn add-seq-wrap
-  ""
-  ([] '(0))
-  ([x] x)
-  ([n x y]
-   ())
-  ([n x y & more]
-   (reduce (partial add-seq-wrap n) (add-seq-wrap n x y) more)))
 
 (defn sub 
   "Difference between GBT values, i.e. add the first value to the inverse of the second."
@@ -270,8 +220,9 @@
  ([x]
   (loop [curr-hex (int->seq x)
          path []]
-    (if (every? zero? curr-hex) path
-        (let [move (inv (first curr-hex))]; Move is the inverse of the most significant digit
+    (if (every? zero? curr-hex)
+        path
+        (let [move (inv-seq (first curr-hex))]; Move is the inverse of the most significant digit
           (recur (add curr-hex move)
                  (conj path move))))))
  ([x y]
