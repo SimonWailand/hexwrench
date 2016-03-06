@@ -1,6 +1,11 @@
 ;;;; Holding cell for failed experiments and old code.
 (ns hexwrench.deprecated)
 
+(defn len
+  "Return the number of digits in a GBT value, i.e. what aggregate it is in."
+  [x] (if (zero? x) 1 
+                    (count (take-while (partial >= x) pow7))))
+
 ;; Not sure how to do this as a lazy-seq (i.e. not building it backwards)
 ;; without passing the length, otherwise 0s get dropped except last
 (defn int->seq

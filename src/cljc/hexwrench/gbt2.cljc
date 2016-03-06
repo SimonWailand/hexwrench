@@ -54,7 +54,7 @@
                [0 5 3 1 6 4 2]
                [0 6 5 4 3 2 1]])
 
-(def first-aggregate-cw [1 3 2 6 4 5])
+(def first-aggregate-cw [[1] [3] [2] [6] [4] [5]])
 (def first-aggregate-angles-ccw [nil 0 240 300 120 60 180])
 
 ;; Change this to base 7? Just up to what fits in long max value
@@ -92,11 +92,6 @@
   "Adds a multiple of a power of 7 to another integer"
   [x y z] (+ x (* y (pow7 z))))
 
-(defn len
-  "Return the number of digits in a GBT value, i.e. what aggregate it is in."
-  [x] (if (zero? x) 1 
-                    (count (take-while (partial >= x) pow7))))
-
 (defn int->seq
   "Convert an integer to a sequence of base 7 digits."
   [x] (map {\0 0 \1 1 \2 2 \3 3 \4 4 \5 5 \6 6} (m/base7 x)))
@@ -117,99 +112,55 @@
         (if-let [carry (get-in add-carry-lut [prior-sum x])]
           (conj carries carry)
           carries)))
-    (vector (first coll) ())
-    (rest coll)))
-
-(defn inv-seq [x] (map inv-lut x))
+    (vector (first coll) ()) (rest coll)))
 
 (defn inv
   "Invert a GBT value."
-  [x] (-> x
-          int->seq
-          inv-seq
-          seq->int))
+  [x] (map inv-lut x))
 
 ;; Holy moly this seems gross. In other languages I would do a lot of array
 ;; index shenaningans here. The idea for this came from Knuth and
 ;; http://lburja.blogspot.com/2010/07/toy-algorithms-with-numbers-in-clojure.html
 (defn add 
   "Add GBT values, spatially equivalent to vector addition."
-  ([] 0)
+  ([] '(0))
   ([x] x)
   ([x y]
-   (loop [x-rev (reverse (int->seq x))
-          y-rev (reverse (int->seq y))
+   (loop [x-rev (reverse x)
+          y-rev (reverse y)
           carries ()
-          aggregate 1
-          sum 0]
+          sum ()]
      (if (and (empty? x-rev)
               (empty? y-rev)
               (empty? carries))
-       sum
-       (let [work (concat carries (take 1 x-rev) (take 1 y-rev))
-             [current-sum next-carries] (sum-digits work)]
+       (if (empty? sum) '(0) sum)
+       (let [[current-sum next-carries] (sum-digits (concat carries (take 1 x-rev) (take 1 y-rev)))]
          (recur (rest x-rev)
                 (rest y-rev)
                 next-carries
-                (inc aggregate)
-                (+multiplepow7 sum current-sum (dec aggregate)))))))
+                (conj sum current-sum))))))
   ([x y & more]
    (reduce add (add x y) more)))
 
-(defn add-seq
-  "Add GBT addresses that are already in the form of sequences and return a sequence.
-  Useful for certain intermediary steps during other operations."
-  ([] '(0))
-  ([x] x)
-  ([x y]
-   )
-  ([x y & more]
-   (reduce add-seq (add-seq x y) more)))
-
 (defn sub 
   "Difference between GBT values, i.e. add the first value to the inverse of the second."
-  ([] 0)
+  ([] '(0))
   ([x] (inv x))
   ([x y]) (add x (inv y)))
 
-(defn sub-seq
+;; No carries in GBT multiplication. There is probably a way to do this without partial sums.
+(defn mul
+  "Multiply GBT values, spacially this is rotation."
   ([] '(0))
-  ([x] (inv-seq x))
-  ([x y] (add-seq x (inv-seq y)))
-  ([x y & more]
-   (reduce sub-seq (sub-seq x y) more)))
-
-(defn mul-new
-  "New Multiply"
-  [x y]
-  (let [l (max (len x) (len y))]
-    #_(apply +)
-    (map *
-         (for [xrev (take l (concat (int->revseq x) (repeat 0)))
-               yrev (take l (concat (int->revseq y) (repeat 0)))]
-           (do (println (*mod7 xrev yrev))
-               (*mod7 xrev yrev)))
-         (cycle (take l pow7)))))
-
-(defn mul 
-  "Multiply GBT values, spatially this is rotation."
-  ([] 0)
   ([x] x)
   ([x y]
-   (let [y (int->seq y)]
-     (loop [x-rev (int->revseq x)
-            place-padding ()
-            partial-sums ()]
-       (if (empty? x-rev)
-         (do (println partial-sums)
-             (reduce add partial-sums))
-         (let [curr-multiplier (first x-rev)]
-           (recur (rest x-rev)
-                  (conj place-padding 0)
-                  (if (zero? curr-multiplier)
-                    partial-sums
-                    (conj partial-sums
-                          (seq->int (concat (map #(*mod7 % curr-multiplier) y) place-padding)))))))))))
+    (apply add
+      (map-indexed
+        (fn [i d]
+          (concat (map (partial *mod7 d) y) (repeat i 0)))
+        (reverse x))))
+  ([x y & more]
+    (reduce mul (mul x y) more)))
 
 ;; TODO: this only works for the first two aggregates. After that the skew means that 
 ;; the returned path is too long. Unskewing each translation by rotating based on 
@@ -218,15 +169,24 @@
   "Returns a sequence of unit 1 translations to transform one GBT value to another.
   The count of this collection is the Manhattan Distance."
  ([x]
-  (loop [curr-hex (int->seq x)
+  (loop [curr-hex x
          path []]
     (if (every? zero? curr-hex)
         path
-        (let [move (inv-seq (first curr-hex))]; Move is the inverse of the most significant digit
+        (let [move (inv (take 1 curr-hex))]; Move is the inverse of the most significant digit
           (recur (add curr-hex move)
                  (conj path move))))))
  ([x y]
   (shortest-path (sub x y)))); Translate "from" by moving "to" to the origin
+
+(defn shortest-path
+  "Returns a sequence of unit 1 translations to transform one GBT value to another.
+  The count of this collection is the Manhattan Distance."
+  ([x]
+    (if-not (every? zero? x)
+      ))
+  ([x y]
+    (shortest-path (sub x y))))
 
 ;; Just implemented for radius 1 so far
 ;; Return a GBT value's neighbors for radius n.
@@ -243,15 +203,15 @@
 (defn to-cartesian
   "Converts a GBT2 address to Cartesian coordinates [x y]. Based on unit sided hexes."
   [x]
-  (loop [x (drop-while zero? (int->seq x))
+  (loop [x (drop-while zero? x)
          coords [0 0]]
     (if (empty? x)
       coords
       (let [offset (dec (count x))
             skew (* offset 19.11)
             theta (+ skew (first-aggregate-angles-ccw (first x)))
-            radius (m/sqrt (* 3 (pow7 offset)))
-            [curr-x curr-y] coords]
+            r (m/sqrt (* 3 (pow7 offset)))
+            [cx cy] coords]
         (recur (drop-while zero? (rest x))
-               [(-> theta m/to-radians m/sin (* radius) - (+ curr-x))
-                (-> theta m/to-radians m/cos (* radius) (+ curr-y))])))))
+               (vector (-> theta m/to-radians m/sin (* r) - (+ cx))
+                       (-> theta m/to-radians m/cos (* r) (+ cy))))))))
