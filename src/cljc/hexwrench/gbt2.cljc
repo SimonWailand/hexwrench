@@ -146,7 +146,7 @@
   "Difference between GBT values, i.e. add the first value to the inverse of the second."
   ([] '(0))
   ([x] (inv x))
-  ([x y]) (add x (inv y)))
+  ([x y] (add x (inv y))))
 
 ;; No carries in GBT multiplication. There is probably a way to do this without partial sums.
 (defn mul
@@ -178,15 +178,6 @@
                  (conj path move))))))
  ([x y]
   (shortest-path (sub x y)))); Translate "from" by moving "to" to the origin
-
-(defn shortest-path
-  "Returns a sequence of unit 1 translations to transform one GBT value to another.
-  The count of this collection is the Manhattan Distance."
-  ([x]
-    (if-not (every? zero? x)
-      ))
-  ([x y]
-    (shortest-path (sub x y))))
 
 ;; Just implemented for radius 1 so far
 ;; Return a GBT value's neighbors for radius n.
