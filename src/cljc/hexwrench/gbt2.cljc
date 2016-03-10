@@ -88,10 +88,6 @@
 (defn *mod7 [x y]
   (get-in mult-lut [x y]))
 
-(defn +multiplepow7 
-  "Adds a multiple of a power of 7 to another integer"
-  [x y z] (+ x (* y (pow7 z))))
-
 (defn int->seq
   "Convert an integer to a sequence of base 7 digits."
   [x] (map {\0 0 \1 1 \2 2 \3 3 \4 4 \5 5 \6 6} (m/base7 x)))
@@ -112,7 +108,8 @@
         (if-let [carry (get-in add-carry-lut [prior-sum x])]
           (conj carries carry)
           carries)))
-    (vector (first coll) ()) (rest coll)))
+    (vector (first coll) ())
+    (rest coll)))
 
 (defn inv
   "Invert a GBT value."
@@ -133,7 +130,7 @@
      (if (and (empty? x-rev)
               (empty? y-rev)
               (empty? carries))
-       (if (empty? sum) '(0) sum)
+       (if (or (empty? sum) (every? zero? sum)) '(0) sum)
        (let [[current-sum next-carries] (sum-digits (concat carries (take 1 x-rev) (take 1 y-rev)))]
          (recur (rest x-rev)
                 (rest y-rev)
@@ -186,7 +183,7 @@
   ([x n]))
 
 (defn create-aggregate
-  "Creates a set of hex addresses for aggregate n (7^n hexes)"
+  "Creates a set of hex addresses (as integers) for aggregate n (7^n hexes)"
   [n] (range (pow7 n)))
 
 ;; Hmmm...this works, but lots of floating point inaccuracy. Will it actually be noticeable?

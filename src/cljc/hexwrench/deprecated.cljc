@@ -1,6 +1,10 @@
 ;;;; Holding cell for failed experiments and old code.
 (ns hexwrench.deprecated)
 
+(defn +multiplepow7 
+  "Adds a multiple of a power of 7 to another integer"
+  [x y z] (+ x (* y (pow7 z))))
+
 (defn len
   "Return the number of digits in a GBT value, i.e. what aggregate it is in."
   [x] (if (zero? x) 1 
