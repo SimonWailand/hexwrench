@@ -2,9 +2,7 @@
 ;;;; Operations act as wrapping transformations as if on the surface of a torus.
 ;;;; Doesn't seem to act as I would have guessed in the first aggregate.
 (ns hexwrench.gbt2.clamped
-	(:require [hexwrench.core :as hex]
-			      [hexwrench.math-interop :as m]
-			      [hexwrench.gbt2 :exclude [add mul]]))
+	(:require [hexwrench.gbt2 :refer :all :exclude [add mul]]))
 
 (defn add
   "Add two GBT addresses with a maximum aggregate. Crossing into a higher aggregate
@@ -20,7 +18,7 @@
              (and (empty? x-rev)
                   (empty? y-rev)
                   (empty? carries)))
-       (if (empty? sum) '(0) sum)
+       (if (or (empty? sum) (every? zero? sum)) '(0) sum)
        (let [[current-sum next-carries] (sum-digits (concat carries (take 1 x-rev) (take 1 y-rev)))]
          (recur (rest x-rev)
                 (rest y-rev)

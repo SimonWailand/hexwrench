@@ -17,8 +17,7 @@
 ;;;; 4     2
 ;;;;    6
 (ns hexwrench.gbt2
-  (:require [hexwrench.core :as hex]
-            [hexwrench.math-interop :as m]))
+  (:require [hexwrench.math-interop :as m]))
 
 ;; According to https://github.com/RhysU/descendu/ who might have seen the original paper:
 ;; "Gibson and Lucas hint at something nicer...
@@ -96,6 +95,10 @@
   "Convert a sequence of base 7 digits to an integer."
   [s] (apply + (map * (reverse s) pow7)))
 
+(defn inv
+  "Invert a GBT value."
+  [x] (map inv-lut x))
+
 (defn- sum-digits
   "Sums a sequence of digits and returns a tuple
   created by reducing over addition mod seven and collecting
@@ -110,10 +113,6 @@
           carries)))
     (vector (first coll) ())
     (rest coll)))
-
-(defn inv
-  "Invert a GBT value."
-  [x] (map inv-lut x))
 
 ;; Holy moly this seems gross. In other languages I would do a lot of array
 ;; index shenaningans here. The idea for this came from Knuth and
@@ -176,7 +175,7 @@
  ([x y]
   (shortest-path (sub x y)))); Translate "from" by moving "to" to the origin
 
-;; Just implemented for radius 1 so far
+;; TODO: Just implemented for radius 1 so far, Needs to handle raidus n
 ;; Return a GBT value's neighbors for radius n.
 (defn neighbors
   ([x] (map (partial add x) first-aggregate-cw))
@@ -187,7 +186,7 @@
   [n] (range (pow7 n)))
 
 ;; Hmmm...this works, but lots of floating point inaccuracy. Will it actually be noticeable?
-;; Maybe someday do without sin/cos
+;; Maybe someday do without sin/cos, possible?
 (defn to-cartesian
   "Converts a GBT2 address to Cartesian coordinates [x y]. Based on unit sided hexes."
   [x]

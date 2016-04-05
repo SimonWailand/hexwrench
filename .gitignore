@@ -3,13 +3,12 @@
 /checkouts
 pom.xml
 pom.xml.asc
-*.jar
 *.class
 /.lein-*
 /.nrepl-port
 .hgignore
-.hg/
-*-OLD.clj*
+/hexwrench.iml
+/.idea
 
 # Sublime Text shtuff
 *.sublime-project

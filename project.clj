@@ -4,10 +4,5 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :dependencies [[org.clojure/clojure "1.7.0"]]
-
-  :plugins [[lein-kibit "0.1.2"]]
-
-  :source-paths ["src/clj"
-                 "src/cljc"
-                 "src/cljs"])
+  :dependencies [[org.clojure/clojure "1.7.0"]
+                 [hiccup "1.0.5"]])
