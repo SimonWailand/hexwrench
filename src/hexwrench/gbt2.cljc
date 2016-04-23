@@ -126,15 +126,14 @@
           y-rev (reverse y)
           carries ()
           sum ()]
-     (if (and (empty? x-rev)
-              (empty? y-rev)
-              (empty? carries))
-       (if (or (empty? sum) (every? zero? sum)) '(0) sum)
-       (let [[current-sum next-carries] (sum-digits (concat carries (take 1 x-rev) (take 1 y-rev)))]
-         (recur (rest x-rev)
-                (rest y-rev)
-                next-carries
-                (conj sum current-sum))))))
+     (let [work (concat carries (take 1 x-rev) (take 1 y-rev))]
+       (if (empty? work)
+         (if (or (empty? sum) (every? zero? sum)) '(0) sum)
+         (let [[current-sum next-carries] (sum-digits work)]
+           (recur (rest x-rev)
+                  (rest y-rev)
+                  next-carries
+                  (conj sum current-sum)))))))
   ([x y & more]
    (reduce add (add x y) more)))
 
@@ -178,8 +177,10 @@
 ;; TODO: Just implemented for radius 1 so far, Needs to handle raidus n
 ;; Return a GBT value's neighbors for radius n.
 (defn neighbors
-  ([x] (map (partial add x) first-aggregate-cw))
-  ([x n]))
+  #_([x] (map (partial add x) first-aggregate-cw))
+  ([x] (neighbors x 1))
+  ([x n]
+    (reduce add x (repeat n [1]))))
 
 (defn create-aggregate
   "Creates a set of hex addresses (as integers) for aggregate n (7^n hexes)"

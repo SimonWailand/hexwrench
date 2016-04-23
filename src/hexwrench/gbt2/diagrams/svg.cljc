@@ -1,10 +1,14 @@
-(ns hexwrench.gbt2.diagrams
+(ns hexwrench.gbt2.diagrams.svg
   (:require [clojure.string :as s]
             [hexwrench.math-interop :as m]
+            [hexwrench.core :as h]
             [hexwrench.gbt2 :as gbt2]
             [hiccup.core :refer [html]]))
 
 (def scale-factor 10)
+
+(def coord-string
+  (s/join " " (map #(s/join "," (map (partial * scale-factor) %)) h/hex-coords)))
 
 (defn hex-tile [hex]
   (let [[id alive] hex
