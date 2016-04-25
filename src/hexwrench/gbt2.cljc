@@ -174,13 +174,19 @@
  ([x y]
   (shortest-path (sub x y)))); Translate "from" by moving "to" to the origin
 
-;; TODO: Just implemented for radius 1 so far, Needs to handle raidus n
-;; Return a GBT value's neighbors for radius n.
+;; FIXME: The multiplication for the other sextants isn't working! Will I have to translate to origin and then back?
 (defn neighbors
-  #_([x] (map (partial add x) first-aggregate-cw))
+  "Returns the neighbors of a GBT2 value in raidus n."
   ([x] (neighbors x 1))
   ([x n]
-    (reduce add x (repeat n [1]))))
+   (let [first-sextant (apply concat
+                              (take n
+                                    (iterate (fn [[h & _ :as p]]
+                                               (take (inc (count p))
+                                                     (iterate (partial add [4]) (add [1] h))))
+                                             [(add [1] x)])))]
+     (concat first-sextant
+             (mapcat #(map (partial mul %) first-sextant) (rest first-aggregate-cw))))))
 
 (defn create-aggregate
   "Creates a set of hex addresses (as integers) for aggregate n (7^n hexes)"
