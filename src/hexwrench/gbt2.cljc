@@ -174,19 +174,27 @@
  ([x y]
   (shortest-path (sub x y)))); Translate "from" by moving "to" to the origin
 
-;; FIXME: The multiplication for the other sextants isn't working! Will I have to translate to origin and then back?
+(defn- add-repeatedly [x y] (iterate (partial add y) x))
+(defn- all-sextants
+  "Takes a set of GBT2 values returns their corresponding values in all sextants"
+  [xs]
+  (concat xs
+          (mapcat (fn [x]
+                 (map (partial mul x) xs))
+               (rest first-aggregate-cw))))
+
 (defn neighbors
-  "Returns the neighbors of a GBT2 value in raidus n."
+  "Returns the neighbors of a GBT2 value in radius n.
+  Calculates "
   ([x] (neighbors x 1))
   ([x n]
-   (let [first-sextant (apply concat
-                              (take n
-                                    (iterate (fn [[h & _ :as p]]
-                                               (take (inc (count p))
-                                                     (iterate (partial add [4]) (add [1] h))))
-                                             [(add [1] x)])))]
-     (concat first-sextant
-             (mapcat #(map (partial mul %) first-sextant) (rest first-aggregate-cw))))))
+   (->> (add-repeatedly '(1) '(1))
+        (take n)
+        (mapcat
+          (fn [m y] (take (inc m) (add-repeatedly y '(4))))
+          (range))
+        all-sextants
+        (map (partial add x)))))
 
 (defn create-aggregate
   "Creates a set of hex addresses (as integers) for aggregate n (7^n hexes)"
