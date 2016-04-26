@@ -14,3 +14,6 @@
   (testing "Converting a GBT2 sequence to an integer."
     (is (= 7r6543210 (seq->int '(6 5 4 3 2 1 0))))))
 
+(deftest add-test
+  (testing "Adding some GBT2 addresses"
+    (is (= [1 2] (add [1] [1])))))

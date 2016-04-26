@@ -1,15 +1,3 @@
-;;;; A library for manipulating Generalized Balanced Ternary values in two dimensions
-;;;; Balanced Ternary is a base 3 number system. Spatially a one dimensional number line
-;;;; GBT2 is a base 7 number system. Spatially a hexagonal tiling of the two dimensional plane
-;;;; GBT3 is a base 15 number system. Spatially a tiling of 3d space using truncated octahedrons
-;;;; GBTn is base 2^(n + 1) - 1 number system.
-
-;;;; References:
-;;;; "The Art of Computer Programming Vol2 Seminumerical Algorithms" by Donald Knuth (for Balanced Ternary)
-;;;; Laurie Gibson and Dean Lucas's 1982 paper defining GBT (I've never obtained this)
-;;;; "An isomorphism between Generalized Balanced Ternary and the p-adic integers" by Wei Zeng Kitto
-;;;; "Image Algebra" by G. Ritter (Kitto's advisor)
-
 ;;;; I'm using the balanced aggregate layout from the original paper:
 ;;;;    1
 ;;;; 5     3
@@ -145,7 +133,7 @@
  ([x]
   (loop [curr-hex x
          path []]
-    (if (every? zero? curr-hex)
+    (if (= curr-hex '(0))
         path
         (let [move (inv (take 1 curr-hex))]; Move is the inverse of the most significant digit
           (recur (add curr-hex move)
@@ -159,12 +147,11 @@
   [xs]
   (concat xs
           (mapcat (fn [x]
-                 (map (partial mul x) xs))
-               (rest first-aggregate-cw))))
+                    (map (partial mul x) xs))
+                  (rest first-aggregate-cw))))
 
 (defn neighbors
-  "Returns the neighbors of a GBT2 value in radius n.
-  Calculates "
+  "Returns the neighbors of a GBT2 value in radius n."
   ([x] (neighbors x 1))
   ([x n]
    (->>
