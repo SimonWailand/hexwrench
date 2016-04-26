@@ -42,7 +42,7 @@
                     [nil nil 6   nil 4   nil 6  ]])
 
 ;; if 0 then 0, else 7 - x
-;; Same as multiplying by 6?
+;; Same as multiplying by 6
 (def inv-lut [0 6 5 4 3 2 1])
 
 (def mult-lut [[0 0 0 0 0 0 0]
@@ -56,30 +56,8 @@
 (def first-aggregate-cw [[1] [3] [2] [6] [4] [5]])
 (def first-aggregate-angles-ccw [nil 0 240 300 120 60 180])
 
-;; Change this to base 7? Just up to what fits in long max value
-(def pow7 [1
-           7
-           49
-           343
-           2041
-           16807
-           117649
-           823543
-           5764801
-           40353607
-           282475249
-           1977326743
-           13841287201
-           96889010407
-           678223072849 
-           4747561509943
-           33232930569601
-           232630513987207
-           1628413597910449
-           11398895185373144
-           79792266297612000
-           558545864083284032
-           3909821048582988288])
+;; Just up to what fits in long max value. Vector so we can access by index
+(def pow7 (into [] (take 23 (iterate (partial * 7) 1))))
 
 (defn +mod7 [x y]
   (get-in add-lut [x y]))
@@ -128,7 +106,8 @@
           sum ()]
      (let [work (concat carries (take 1 x-rev) (take 1 y-rev))]
        (if (empty? work)
-         (if (or (empty? sum) (every? zero? sum)) '(0) sum)
+         (let [final-sum (drop-while zero? sum)]
+           (if (empty? final-sum) '(0) final-sum))
          (let [[current-sum next-carries] (sum-digits work)]
            (recur (rest x-rev)
                   (rest y-rev)
@@ -188,13 +167,17 @@
   Calculates "
   ([x] (neighbors x 1))
   ([x n]
-   (->> (add-repeatedly '(1) '(1))
-        (take n)
-        (mapcat
-          (fn [m y] (take (inc m) (add-repeatedly y '(4))))
-          (range))
-        all-sextants
-        (map (partial add x)))))
+   (->>
+     ;; Hexes in first sextant
+     (add-repeatedly '(1) '(1))
+     (take n)
+     (mapcat
+       (fn [m y] (take m (add-repeatedly y '(4))))
+       (range 1 (inc n)))
+     ;; Add the other 5 sextants
+     all-sextants
+     ;; Translate from origin
+     (map (partial add x)))))
 
 (defn create-aggregate
   "Creates a set of hex addresses (as integers) for aggregate n (7^n hexes)"

@@ -24,14 +24,14 @@
 
 (defn create-grid
   "Takes a sequence of gbt2 addresses and makes a svg visualization of them."
-  [xs]
+  [xs & opts]
   (html
     [:svg {:baseProfile         "full"
            :preserveAspectRatio "xMidYMid slice"
            :version             "1.1"
-           :viewBox             "0 0 200 200"
+           :viewBox             "0 0 100 100"
            :xmlns               "http://www.w3.org/2000/svg"
            :xmlns:xlink         "http://www.w3.org/1999/xlink"}
-     [:g#coordSysTransform {:transform "translate(100 100)"}
+     [:g#coordSysTransform {:transform "translate(50 50)"}
       (for [h xs]
         (hex-tile h))]]))

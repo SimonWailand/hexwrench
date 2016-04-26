@@ -1,4 +1,4 @@
-(defproject hexwrench "0.2.3"
+(defproject hexwrench "0.2.4"
   :description "Tools for manipulating hex grids."
   :url "https://github.com/SimonWailand/hexwrench"
   :license {:name "Eclipse Public License"
