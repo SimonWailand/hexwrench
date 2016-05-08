@@ -1,0 +1,44 @@
+body {
+    font-face: verdana;
+    font-size: 8px;
+}
+
+#Grid {
+    background: #999;
+    border: solid 1px #000;
+    height: 600px;
+    margin: 10px auto;
+    width: 600px;
+}
+
+#Grid svg {
+    height: 100%;
+    width: 100%;
+}
+
+.hexagon {
+    fill: hsl(0, 0%, 90%);
+    stroke: hsl(0, 0%, 50%);
+    stroke-width: 0.5px;
+ }
+
+.hexagon:hover {
+    fill: hsl(240, 40%, 70%);
+    stroke: hsl(0, 0%, 20%);
+}
+
+.hexagon.active {
+    fill: hsl(114, 100%, 90%);
+}
+
+.hexagon.active:hover {
+    fill: hsl(114, 100%, 70%);
+}
+
+.tile .label {
+    font-family: monospace;
+    font-size: 4px;
+    pointer-events: none;
+    alignment-baseline: middle;
+    text-anchor: middle;
+}
