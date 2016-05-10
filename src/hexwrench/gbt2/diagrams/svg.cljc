@@ -5,22 +5,19 @@
             [hexwrench.gbt2 :as gbt2]
             [hiccup.core :refer [html]]))
 
-(def scale-factor 10)
-
 (def coord-string
-  (s/join " " (map #(s/join "," (map (partial * scale-factor) %)) h/hex-coords)))
+  (s/join " " (map #(s/join "," %) h/hex-coords)))
 
 (defn hex-tile [hex & opts]
-  (let [[id alive] hex
-        [x y] (gbt2/to-cartesian (gbt2/int->seq id))
-        x (* x scale-factor)
-        y (- (* y scale-factor))
-        hex-classes (s/join " " ["hexagon" (if alive "active")])]
-    [:g.tile {:id (str "h" id)
+  (let [[x y] (gbt2/to-cartesian (gbt2/int->seq hex))
+        y (- y)
+        ;hex-classes (s/join " " ["hexagon" (if alive "active")])
+        ]
+    [:g.tile {:id (str "h" hex)
               :transform (str "translate(" x " " y ")")}
-     [:polygon {:class hex-classes
+     [:polygon {:class "hexagon"
                 :points coord-string}]
-     (if (opts :show-ids) [:text.label (m/base7 id)])]))
+     #_(when (opts :show-ids) [:text.label (m/base7 hex)])]))
 
 (defn create-grid
   "Takes a sequence of gbt2 addresses and makes a svg visualization of them."
@@ -32,12 +29,12 @@
                opts)]
     (html
       [:svg {:baseProfile         "full"
-             :preserveAspectRatio "xMidYMid slice"
+             :preserveAspectRatio "xMidYMid meet"
              :version             "1.1"
-             :viewBox             "0 0 100 100"
+             ;:viewBox             "0 0 100 100"
              :xmlns               "http://www.w3.org/2000/svg"
              :xmlns:svg           "http://www.w3.org/2000/svg"
              :xmlns:xlink         "http://www.w3.org/1999/xlink"}
-       [:g#coordSysTransform {:transform "translate(50 50)"}
+       [:g#coordSystem {:transform "translate(50 50)"}
         (for [h xs]
           (hex-tile h opts))]])))
