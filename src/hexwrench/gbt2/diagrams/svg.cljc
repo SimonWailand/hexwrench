@@ -8,16 +8,19 @@
 (def coord-string
   (s/join " " (map #(s/join "," %) h/hex-coords)))
 
-(defn hex-tile [hex & opts]
-  (let [[x y] (gbt2/to-cartesian (gbt2/int->seq hex))
-        y (- y)
-        ;hex-classes (s/join " " ["hexagon" (if alive "active")])
-        ]
-    [:g.tile {:id (str "h" hex)
-              :transform (str "translate(" x " " y ")")}
-     [:polygon {:class "hexagon"
-                :points coord-string}]
-     #_(when (opts :show-ids) [:text.label (m/base7 hex)])]))
+(defn hex-tile
+  ([hex] (hex-tile hex {}))
+  ([hex opts]
+   (let [[x y] (gbt2/to-cartesian (gbt2/int->seq hex))
+         y (- y)
+         ;hex-classes (s/join " " ["hexagon" (if alive "active")])
+         ]
+     [:g.tile {:id        (str "h" hex)
+               :transform (str "translate(" x " " y ")")}
+      [:polygon {:class  "hexagon"
+                 :points coord-string}]
+      (when (opts :show-ids)
+        [:text.label (m/base7 hex)])])))
 
 (defn create-grid
   "Takes a sequence of gbt2 addresses and makes a svg visualization of them."
@@ -31,7 +34,7 @@
       [:svg {:baseProfile         "full"
              :preserveAspectRatio "xMidYMid meet"
              :version             "1.1"
-             ;:viewBox             "0 0 100 100"
+             :viewBox             "0 0 100 100"
              :xmlns               "http://www.w3.org/2000/svg"
              :xmlns:svg           "http://www.w3.org/2000/svg"
              :xmlns:xlink         "http://www.w3.org/1999/xlink"}
