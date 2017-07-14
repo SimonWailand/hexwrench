@@ -45,7 +45,7 @@
 (def first-aggregate-angles-ccw [nil 0 240 300 120 60 180])
 
 ;; Just up to what fits in long max value. Vector so we can access by index
-(def pow7 (into [] (take 23 (iterate (partial * 7) 1))))
+(def pow7 (vec (take 23 (iterate (partial * 7) 1))))
 
 (defn +mod7 [x y]
   (get-in add-lut [x y]))
@@ -57,13 +57,21 @@
   "Convert an integer to a sequence of base 7 digits."
   [x] (map {\0 0 \1 1 \2 2 \3 3 \4 4 \5 5 \6 6} (m/base7 x)))
 
+(defn int->vec
+  "Convert an integer into a vector of base 7 digits."
+  [x] (mapv {\0 0 \1 1 \2 2 \3 3 \4 4 \5 5 \6 6} (m/base7 x)))
+
 (defn seq->int
   "Convert a sequence of base 7 digits to an integer."
   [s] (apply + (map * (reverse s) pow7)))
 
+(defn vec->int
+  "Converts a vector of base 7 digits to an integer."
+  [coll] (apply + (map * (rseq coll) pow7)))
+
 (defn inv
   "Invert a GBT value."
-  [x] (map inv-lut x))
+  [x] (mapv inv-lut x))
 
 (defn- sum-digits
   "Sums a sequence of digits and returns a tuple
@@ -85,7 +93,7 @@
 ;; http://lburja.blogspot.com/2010/07/toy-algorithms-with-numbers-in-clojure.html
 (defn add 
   "Add GBT values, spatially equivalent to vector addition."
-  ([] '(0))
+  ([] [0])
   ([x] x)
   ([x y]
    (loop [x-rev (reverse x)
@@ -95,7 +103,7 @@
      (let [work (concat carries (take 1 x-rev) (take 1 y-rev))]
        (if (empty? work)
          (let [final-sum (drop-while zero? sum)]
-           (if (empty? final-sum) '(0) final-sum))
+           (if (empty? final-sum) [0] final-sum))
          (let [[current-sum next-carries] (sum-digits work)]
            (recur (rest x-rev)
                   (rest y-rev)
@@ -106,14 +114,16 @@
 
 (defn sub 
   "Difference between GBT values, i.e. add the first value to the inverse of the second."
-  ([] '(0))
+  ([] [0])
   ([x] (inv x))
-  ([x y] (add x (inv y))))
+  ([x y] (add x (inv y)))
+  ([x y & more]
+    (reduce sub (add x (inv y)) more)))
 
 ;; No carries in GBT multiplication. There is probably a way to do this without partial sums.
 (defn mul
   "Multiply GBT values, spacially this is rotation."
-  ([] '(0))
+  ([] [0])
   ([x] x)
   ([x y]
     (apply add
@@ -171,19 +181,20 @@
   [n] (range (pow7 n)))
 
 ;; Hmmm...this works, but lots of floating point inaccuracy. Will it actually be noticeable?
-;; Maybe someday do without sin/cos, possible?
+;; TODO: Maybe use (rationalize)?
 (defn to-cartesian
-  "Converts a GBT2 address to Cartesian coordinates [x y]. Based on unit sided hexes."
-  [x]
-  (loop [x (drop-while zero? x)
-         coords [0 0]]
-    (if (empty? x)
-      coords
-      (let [offset (dec (count x))
-            skew (* offset 19.11)
-            theta (+ skew (first-aggregate-angles-ccw (first x)))
-            r (m/sqrt (* 3 (pow7 offset)))
-            [cx cy] coords]
-        (recur (drop-while zero? (rest x))
-               (vector (-> theta m/to-radians m/sin (* r) - (+ cx))
-                       (-> theta m/to-radians m/cos (* r) (+ cy))))))))
+  "Converts a GBT2 address vector to Cartesian coordinates [x y].
+  Based on unit sided hexes. Multiply by actual side length to get final values."
+  [address]
+  (let [aggregate (dec (count address))]
+    (reduce-kv (fn [coords idx digit]
+                 (if (zero? digit)
+                   coords
+                   (let [offset (- aggregate idx)
+                         skew (* offset 19.11)
+                         theta (m/to-radians (+ skew (first-aggregate-angles-ccw digit)))
+                         r (m/sqrt (* 3 (pow7 offset)))
+                         [cx cy] coords]
+                     [(-> theta m/sin (* r) - (+ cx))
+                      (-> theta m/cos (* r) (+ cy))])))
+               [0 0] address)))
