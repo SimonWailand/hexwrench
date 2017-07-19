@@ -19,7 +19,8 @@
               [5 6 0 1 2 3 4]
               [6 0 1 2 3 4 5]])
 
-;; Notes: carry digit is only used when the addends are <= 60 degrees from each other.
+;; Carry digit is only used when the addends are <= 60 degrees from each other.
+;; Only when the cosine of the angle between the addends is positive?
 ;; The carry digit is the most clockwise addend
 (def add-carry-lut [[nil nil nil nil nil nil nil]
                     [nil 1   nil 3   nil 1   nil]
@@ -29,8 +30,7 @@
                     [nil 1   nil nil 5   5   nil]
                     [nil nil 6   nil 4   nil 6  ]])
 
-;; if 0 then 0, else 7 - x
-;; Same as multiplying by 6
+;; (7 - pos) mod 7
 (def inv-lut [0 6 5 4 3 2 1])
 
 (def mult-lut [[0 0 0 0 0 0 0]
@@ -53,17 +53,9 @@
 (defn *mod7 [x y]
   (get-in mult-lut [x y]))
 
-(defn int->seq
-  "Convert an integer to a sequence of base 7 digits."
-  [x] (map {\0 0 \1 1 \2 2 \3 3 \4 4 \5 5 \6 6} (m/base7 x)))
-
 (defn int->vec
   "Convert an integer into a vector of base 7 digits."
   [x] (mapv {\0 0 \1 1 \2 2 \3 3 \4 4 \5 5 \6 6} (m/base7 x)))
-
-(defn seq->int
-  "Convert a sequence of base 7 digits to an integer."
-  [s] (apply + (map * (reverse s) pow7)))
 
 (defn vec->int
   "Converts a vector of base 7 digits to an integer."
@@ -80,16 +72,14 @@
   [coll]
   (reduce
     (fn [[prior-sum carries] x]
-      (vector
-        (+mod7 prior-sum x)
-        (if-let [carry (get-in add-carry-lut [prior-sum x])]
-          (conj carries carry)
-          carries)))
-    (vector (first coll) ())
+      [(+mod7 prior-sum x)
+       (if-let [carry (get-in add-carry-lut [prior-sum x])]
+         (conj carries carry)
+         carries)])
+    [(first coll) ()]
     (rest coll)))
 
-;; Holy moly this seems gross. In other languages I would do a lot of array
-;; index shenaningans here. The idea for this came from Knuth and
+;; The idea for this came from Knuth and
 ;; http://lburja.blogspot.com/2010/07/toy-algorithms-with-numbers-in-clojure.html
 (defn add 
   "Add GBT values, spatially equivalent to vector addition."
@@ -100,15 +90,13 @@
           y-rev (reverse y)
           carries ()
           sum ()]
-     (let [work (concat carries (take 1 x-rev) (take 1 y-rev))]
-       (if (empty? work)
-         (let [final-sum (drop-while zero? sum)]
-           (if (empty? final-sum) [0] final-sum))
-         (let [[current-sum next-carries] (sum-digits work)]
-           (recur (rest x-rev)
-                  (rest y-rev)
-                  next-carries
-                  (conj sum current-sum)))))))
+     (if-let [work (seq (concat carries (take 1 x-rev) (take 1 y-rev)))]
+       (let [[current-sum next-carries] (sum-digits work)]
+         (recur (rest x-rev)
+                (rest y-rev)
+                next-carries
+                (conj sum current-sum)))
+       (if-let [final-sum (seq (drop-while zero? sum))] (vec final-sum) [0]))))
   ([x y & more]
    (reduce add (add x y) more)))
 
@@ -121,8 +109,9 @@
     (reduce sub (add x (inv y)) more)))
 
 ;; No carries in GBT multiplication. There is probably a way to do this without partial sums.
+;; TODO: check out Knuth's algorithm
 (defn mul
-  "Multiply GBT values, spacially this is rotation."
+  "Multiply GBT values, spatially this is rotation."
   ([] [0])
   ([x] x)
   ([x y]
@@ -143,7 +132,7 @@
  ([x]
   (loop [curr-hex x
          path []]
-    (if (= curr-hex '(0))
+    (if (= curr-hex [0])
         path
         (let [move (inv (take 1 curr-hex))]; Move is the inverse of the most significant digit
           (recur (add curr-hex move)
@@ -166,10 +155,10 @@
   ([x n]
    (->>
      ;; Hexes in first sextant
-     (add-repeatedly '(1) '(1))
+     (add-repeatedly [1] [1])
      (take n)
      (mapcat
-       (fn [m y] (take m (add-repeatedly y '(4))))
+       (fn [m y] (take m (add-repeatedly y [4])))
        (range 1 (inc n)))
      ;; Add the other 5 sextants
      all-sextants
@@ -187,14 +176,13 @@
   Based on unit sided hexes. Multiply by actual side length to get final values."
   [address]
   (let [aggregate (dec (count address))]
-    (reduce-kv (fn [coords idx digit]
+    (reduce-kv (fn [[x y :as coords] idx digit]
                  (if (zero? digit)
                    coords
                    (let [offset (- aggregate idx)
                          skew (* offset 19.11)
                          theta (m/to-radians (+ skew (first-aggregate-angles-ccw digit)))
-                         r (m/sqrt (* 3 (pow7 offset)))
-                         [cx cy] coords]
-                     [(-> theta m/sin (* r) - (+ cx))
-                      (-> theta m/cos (* r) (+ cy))])))
+                         r (m/sqrt (* 3 (pow7 offset)))]
+                     [(-> theta m/sin (* r) - (+ x))
+                      (-> theta m/cos (* r) (+ y))])))
                [0 0] address)))

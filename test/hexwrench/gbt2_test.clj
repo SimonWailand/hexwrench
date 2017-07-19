@@ -4,15 +4,15 @@
 
 (deftest inv-test
   (testing "Inverting a GBT2 address."
-    (is (= '(6 5 4 3 2 1 0) (inv '(1 2 3 4 5 6 0))))))
+    (is (= [6 5 4 3 2 1 0] (inv [1 2 3 4 5 6 0])))))
 
-(deftest int->seq-test
+(deftest int->vec-test
   (testing "Converting an integer to a GBT2 sequence."
-    (is (= '(1 2 3 4 5 6 0) (int->seq 7r1234560)))))
+    (is (= [1 2 3 4 5 6 0] (int->vec 7r1234560)))))
 
-(deftest seq->int-test
+(deftest vec->int-test
   (testing "Converting a GBT2 sequence to an integer."
-    (is (= 7r6543210 (seq->int '(6 5 4 3 2 1 0))))))
+    (is (= 7r6543210 (vec->int [6 5 4 3 2 1 0])))))
 
 (deftest add-test
   (testing "Adding some GBT2 addresses"
