@@ -12,6 +12,9 @@
 
 ;; Convenience partials
 (def int->address (partial gbt/int->address gbt2-space))
+(def address->string (partial gbt/address->string gbt2-space))
+(def address->int (partial gbt/address->int gbt2-space))
+
 (def inv (partial gbt/inv gbt2-space))
 (def add (partial gbt/add gbt2-space))
 (def sub (partial gbt/sub gbt2-space))
